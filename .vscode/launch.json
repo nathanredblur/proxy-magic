@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "attach",
+            "name": "Attach to Node Proxy",
+            "port": 9229, // Default inspect port
+            "restart": true,
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        }
+        // Puedes añadir otras configuraciones de lanzamiento aquí si las necesitas
+    ]
+} 
