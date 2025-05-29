@@ -1,3 +1,4 @@
+const path = require('path'); // Import the path module
 const Proxy = require('http-mitm-proxy').Proxy; // Required for ctx.use(Proxy.gunzip)
 
 /**
@@ -11,25 +12,53 @@ const Proxy = require('http-mitm-proxy').Proxy; // Required for ctx.use(Proxy.gu
 /** @type {Rule[]} */
 const rules = [
     {
-        name: 'Kraken HTML Redirect to Localhost',
+        name: 'Kraken Assets & HTML Redirect to Localhost (Filename Only)',
         match: (parsedUrl, clientReq, ctx) => {
+            // Now matches any file type under the specified path and hostname pattern
             return (
                 parsedUrl.hostname.includes('kraken-dev-') &&
-                parsedUrl.pathname.startsWith('/my/money/account') &&
-                (clientReq.headers['accept'] || '').includes('text/html')
+                parsedUrl.pathname.startsWith('/my/money/') // Broadened path slightly to include manifest if it is at /my/money/manifest...
             );
         },
         onRequest: (ctx, parsedUrl) => {
-            const TARGET_HOST = 'localhost'; // Could be configurable too
-            const TARGET_PORT = 9045;    // Could be configurable too
+            const TARGET_HOST = 'localhost';
+            const TARGET_PORT = 9045;
 
-            ctx.proxyToServerRequestOptions.host = TARGET_HOST;
-            ctx.proxyToServerRequestOptions.port = TARGET_PORT;
-            ctx.proxyToServerRequestOptions.path = parsedUrl.pathname + parsedUrl.search;
-            ctx.proxyToServerRequestOptions.headers['Host'] = `${TARGET_HOST}:${TARGET_PORT}`;
-            ctx.proxyToServerRequestOptions.protocol = 'http:';
-            // logger.log(1, `[RULE: ${this.name || 'Kraken Redirect'}] Redirecting to http://${TARGET_HOST}:${TARGET_PORT}${ctx.proxyToServerRequestOptions.path}`);
-            // We'll add proper logging in proxy-server.js based on a logger utility
+            // Extract filename from the original pathname
+            const originalPathname = parsedUrl.pathname;
+            const filename = path.basename(originalPathname);
+            
+            // Construct the new path: /filename?originalquery
+            const newPath = '/' + filename + parsedUrl.search; 
+
+            const originalHostHeader = `${TARGET_HOST}:${TARGET_PORT}`;
+
+            // Clean up proxyToServerRequestOptions for a fresh HTTP request
+            // Start with a minimal set of options, then add what's needed.
+            const newOptions = {
+                host: TARGET_HOST,
+                port: TARGET_PORT,
+                path: newPath, // Use only the filename + query for the path
+                method: ctx.clientToProxyRequest.method, // Preserve original method
+                headers: { // Start with minimal headers, can be more selective
+                    ...ctx.clientToProxyRequest.headers, // Carry over original headers
+                    'Host': originalHostHeader // Set the correct Host header for the target
+                }
+            };
+            
+            // Delete common SSL-related properties that might confuse an HTTP request
+            delete newOptions.headers['Upgrade-Insecure-Requests']; // Often sent by browsers for HTTPS
+            // Overwrite the context's request options object
+            for (const key in ctx.proxyToServerRequestOptions) {
+                delete ctx.proxyToServerRequestOptions[key];
+            }
+            Object.assign(ctx.proxyToServerRequestOptions, newOptions);
+            
+            if (ctx.isSSL) {
+                ctx.isSSL = false; 
+            }
+            // Log an info message via the logger in proxy-server.js
+            // Example: logger.log(1, `[RULE: ${this.name}] Redirecting ${parsedUrl.href} to http://${TARGET_HOST}:${TARGET_PORT}${newPath}`);
         }
     },
     {
