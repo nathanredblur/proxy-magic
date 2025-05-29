@@ -1,0 +1,16 @@
+# Node modules
+node_modules/
+
+# Proxy CA certificates
+/.proxy_certs/
+
+# Chrome user profile for proxy testing
+/.chrome_proxy_profile/
+
+# PNPM lockfile
+pnpm-lock.yaml
+
+# OS generated files
+.DS_Store
+*.pem
+*.crt 

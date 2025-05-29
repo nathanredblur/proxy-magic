@@ -1,0 +1,24 @@
+{
+  "name": "proxy-magic",
+  "version": "1.0.0",
+  "description": "",
+  "main": "proxy-server.js",
+  "scripts": {
+    "start": "concurrently --kill-others --names \"SERVER,CHROME\" --prefix-colors \"blueBright,greenBright\" \"pnpm proxy\" \"pnpm chrome\"",
+    "debug": "concurrently --kill-others --names \"SERVER,CHROME\" --prefix-colors \"blueBright,greenBright\" \"pnpm proxy:debug\" \"pnpm chrome\"",
+    "proxy": "export NODE_TLS_REJECT_UNAUTHORIZED=0 && node proxy-server.js",
+    "proxy:debug": "export NODE_TLS_REJECT_UNAUTHORIZED=0 && node --inspect-brk proxy-server.js",
+    "chrome": "/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --proxy-server='http://127.0.0.1:8080' --user-data-dir='./.chrome_proxy_profile' --no-first-run",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "http-mitm-proxy": "^1.1.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "packageManager": "pnpm@10.11.0"
+}
