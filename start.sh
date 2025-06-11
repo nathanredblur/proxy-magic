@@ -41,7 +41,8 @@ trap cleanup EXIT
 CHROME_ARGS=(
     "--proxy-server=http://127.0.0.1:8080"
     "--no-first-run"
-    "--user-data-dir=$(mktemp -d)"
+    "--user-data-dir=./.chrome_proxy_profile"
+    "--disable-session-crashed-bubble"
 )
 
 # Start Chrome
