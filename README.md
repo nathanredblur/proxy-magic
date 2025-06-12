@@ -4,15 +4,20 @@ This project sets up a local Man-in-the-Middle (MITM) proxy server using Node.js
 
 ## Features
 
-- Intercepts HTTP and HTTPS traffic.
-- Allows defining custom rules to modify requests (e.g., redirect URLs, add headers).
-- Stores its Certificate Authority (CA) certificate locally within the project (`./.proxy_certs`).
+- Intercepts HTTP and HTTPS traffic with custom rules
+- Modular rule system for request/response modification (see `rules.js`)
+- Automatic SSL certificate generation and management
+- Multiple startup options with different log levels
+- Automated Chrome browser setup with proxy configuration
+- Clean process management and automatic cleanup
 
 ## Prerequisites
 
-- Node.js and pnpm (or npm/yarn) installed.
+- Node.js (v14+ recommended) and pnpm (or npm/yarn) installed
+- Google Chrome browser (for automated startup script)
+- macOS (scripts are optimized for macOS, but can be adapted for other OS)
 
-## Setup and Usage
+## Quick Start
 
 1.  **Install Dependencies:**
 
@@ -22,137 +27,254 @@ This project sets up a local Man-in-the-Middle (MITM) proxy server using Node.js
     # or yarn install
     ```
 
-2.  **Generate and Install the CA Certificate:**
-
-    The first time you run the proxy, it will generate a root Certificate Authority (CA) if one doesn't already exist in the `./.proxy_certs/certs/` directory. This CA is used to sign SSL certificates for the sites you visit through the proxy, allowing it to decrypt and inspect HTTPS traffic.
-
-    - **Run the proxy once to generate the CA:**
-
-      ```bash
-      pnpm start
-      # or node proxy-server.js
-      ```
-
-      Look for a message like: `The CA certificate (ca.pem) for this proxy will be stored in: /path/to/your/project/.proxy_certs/certs/ca.pem`.
-      You can stop the proxy (Ctrl+C) after the certificate `ca.pem` is generated.
-
-    - **Install the CA Certificate (`ca.pem`):**
-      You **MUST** install the generated `ca.pem` file (located at `./.proxy_certs/certs/ca.pem`) into your operating system's or browser's trust store. Otherwise, you will get SSL warnings/errors for all HTTPS sites.
-
-      **macOS:**
-
-      1.  Open **Keychain Access** (Applications > Utilities > Keychain Access).
-      2.  Select the **System** keychain from the sidebar.
-      3.  Drag and drop the `ca.pem` file from `./.proxy_certs/certs/ca.pem` into the list of certificates in Keychain Access.
-      4.  Find the certificate in the list (it will likely be named after the hostname of your machine or a generic name like "Node MITM Proxy CA").
-      5.  Double-click the certificate to open its details.
-      6.  Expand the **Trust** section.
-      7.  Set "When using this certificate:" to **Always Trust**.
-      8.  Close the certificate window. You may need to enter your administrator password.
-
-      **Windows:**
-
-      1.  Double-click the `ca.pem` file.
-      2.  Click "Install Certificate...".
-      3.  Choose "Current User" or "Local Machine" (Local Machine is generally recommended if you have admin rights).
-      4.  Select "Place all certificates in the following store".
-      5.  Click "Browse..." and select "Trusted Root Certification Authorities". Click OK.
-      6.  Click "Next" and then "Finish".
-      7.  If you get a security warning, click "Yes".
-
-      **Linux (Debian/Ubuntu based):**
-
-      1.  Copy the `ca.pem` file to the system CA directory:
-          ```bash
-          sudo cp ./.proxy_certs/certs/ca.pem /usr/local/share/ca-certificates/node-mitm-proxy.crt
-          ```
-      2.  Update the system CA store:
-          ```bash
-          sudo update-ca-certificates
-          ```
-
-      **Firefox:**
-      Firefox has its own certificate trust store. You may need to import the CA certificate there as well:
-
-      1.  Go to Firefox Settings > Privacy & Security > Certificates (View Certificates).
-      2.  In the "Authorities" tab, click "Import...".
-      3.  Navigate to and select the `ca.pem` file from `./.proxy_certs/certs/ca.pem`.
-      4.  Check "Trust this CA to identify websites." and click OK.
-
-3.  **Start the Proxy Server:**
+2.  **Start with the convenient script:**
 
     ```bash
-    pnpm start
+    # Start proxy and Chrome with default settings
+    ./start.sh
+
+    # Start with a specific URL
+    ./start.sh https://example.com
+
+    # Start with debug logging
+    ./start.sh --log=DEBUG
+
+    # Start with specific URL and log level
+    ./start.sh https://github.com --log=INFO
     ```
 
-    The proxy will listen on port 8080 (or as configured in `proxy-server.js`).
+## Available Startup Methods
 
-4.  **Configure Your Browser/System to Use the Proxy:**
+### Method 1: Automated Script (Recommended)
 
-    - **System-wide (macOS Example):**
+The `start.sh` script provides the most convenient way to start the proxy server and Chrome:
 
-      1.  Go to System Settings > Network.
-      2.  Select your active network service (e.g., Wi-Fi).
-      3.  Click "Details..." then "Proxies".
-      4.  Enable "Web Proxy (HTTP)" and "Secure Web Proxy (HTTPS)".
-      5.  Set both to Server: `127.0.0.1`, Port: `8080`.
-      6.  Click OK and Apply.
+```bash
+# Basic usage
+./start.sh [URL] [--log=LEVEL | -l LEVEL]
 
-    - **Launch Chrome with Proxy (macOS/Linux):**
-      You can use the command from `package.json`'s `start:chrome:proxy` script or adapt it:
+# Examples:
+./start.sh                                    # Start with about:blank
+./start.sh https://example.com                # Start with specific URL
+./start.sh --log=DEBUG                       # Start with debug logging
+./start.sh https://example.com --log=INFO    # URL + log level
+./start.sh -l DEBUG https://example.com      # Alternative log syntax
+```
 
-      ```bash
-      /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --proxy-server="http://127.0.0.1:8080" --user-data-dir="$(mktemp -d)" --no-first-run --ignore-certificate-errors-spki-list=THIS_IS_A_PLACEHOLDER_AND_WILL_BE_GENERATED_BY_THE_PROXY
-      ```
+**Log Levels:**
 
-      **Note on `--ignore-certificate-errors-spki-list`**: `http-mitm-proxy` might require you to add a specific SPKI hash to this flag if you encounter issues with Chrome trusting the dynamically generated certificates, even with the root CA installed. The proxy itself might log this required hash when it encounters such an issue. Alternatively, ensuring the CA is fully trusted in your OS keychain often resolves this for Chrome.
+- `NONE` or `0`: No logging
+- `INFO` or `1`: Standard logging (default)
+- `DEBUG` or `2`: Verbose debugging
 
-      For a more persistent setup without needing to start Chrome with flags every time, configure the proxy in your system network settings.
+**Features:**
 
-## Implementing Rules
+- Automatically starts the proxy server in background
+- Launches Chrome with proper proxy configuration
+- Handles process cleanup when Chrome closes
+- Uses persistent Chrome profile in `./.chrome_proxy_profile`
+- Sets `NODE_TLS_REJECT_UNAUTHORIZED=0` for development
 
-Modify the `proxy.onRequest` function in `proxy-server.js` to define your interception and modification rules.
-See the comments within the file for examples on how to:
+### Method 2: Package.json Scripts
 
-- Read request details (URL, headers, method).
-- Modify the request before it's sent to the server (e.g., change host, port, path, headers).
+```bash
+# Start proxy server and Chrome concurrently
+pnpm start           # Uses concurrently to run both processes
 
-Example (redirecting a specific path):
+# Start with debug mode
+pnpm debug           # Runs proxy with Node.js debugger
+
+# Run components separately
+pnpm proxy           # Only start the proxy server
+pnpm proxy:debug     # Start proxy with Node.js debugger
+pnpm chrome          # Only start Chrome (proxy must be running)
+```
+
+### Method 3: Manual Startup
+
+```bash
+# Start proxy server manually
+export NODE_TLS_REJECT_UNAUTHORIZED=0
+node proxy-server.js
+
+# In another terminal, start Chrome with proxy
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --proxy-server="http://127.0.0.1:8080" \
+  --user-data-dir="./.chrome_proxy_profile" \
+  --no-first-run \
+  --disable-session-crashed-bubble
+```
+
+## Initial Certificate Setup
+
+The first time you run the proxy, it will generate a root Certificate Authority (CA). You **MUST** install this certificate to avoid SSL warnings:
+
+1. **Generate the CA certificate** (run any startup method once):
+
+   ```bash
+   ./start.sh  # Run once and close Chrome to generate certs
+   ```
+
+2. **Install the CA Certificate** (`./.proxy_certs/certs/ca.pem`):
+
+   **macOS:**
+
+   1. Open **Keychain Access** (Applications > Utilities)
+   2. Select the **System** keychain
+   3. Drag and drop `ca.pem` from `./.proxy_certs/certs/ca.pem` into Keychain
+   4. Double-click the certificate in the list
+   5. Expand the **Trust** section
+   6. Set "When using this certificate:" to **Always Trust**
+   7. Close and enter your admin password
+
+   **Windows:**
+
+   1. Double-click the `ca.pem` file
+   2. Click "Install Certificate..." → "Local Machine"
+   3. Select "Place all certificates in the following store"
+   4. Browse and select "Trusted Root Certification Authorities"
+   5. Complete the installation
+
+   **Linux:**
+
+   ```bash
+   sudo cp ./.proxy_certs/certs/ca.pem /usr/local/share/ca-certificates/proxy-magic.crt
+   sudo update-ca-certificates
+   ```
+
+   **Firefox:** Import separately in Firefox Settings > Privacy & Security > Certificates
+
+## Implementing Custom Rules
+
+Rules are defined in `rules.js` using a modular system. Each rule can:
+
+- Match specific URLs or patterns
+- Modify requests before they reach the target server
+- Modify responses before they reach the client
+
+### Rule Structure
 
 ```javascript
-// In proxy.onRequest in proxy-server.js
-const req = ctx.clientToProxyRequest;
-const url = new URL(req.url); // Assumes req.url is absolute, which it should be in proxy requests
-
-if (
-  url.hostname.startsWith("kraken-dev-") &&
-  url.pathname.startsWith("/my/money/account")
-) {
-  const acceptHeader = req.headers["accept"] || "";
-  if (acceptHeader.includes("text/html")) {
-    console.log(`[MITM RULE] Kraken redirect rule matched for ${req.url}`);
-    ctx.proxyToServerRequestOptions.host = "localhost";
-    ctx.proxyToServerRequestOptions.port = 9045;
-    ctx.proxyToServerRequestOptions.path = url.pathname + url.search; // Preserve path and query
-    ctx.proxyToServerRequestOptions.headers["Host"] = "localhost:9045"; // Update Host header
-    console.log(
-      `[MITM RULE] Redirecting to localhost:9045${ctx.proxyToServerRequestOptions.path}`
-    );
-  }
+{
+    name: 'My Custom Rule',
+    match: (parsedUrl, clientReq, ctx) => {
+        // Return true if this rule should apply
+        return parsedUrl.hostname.includes('example.com');
+    },
+    onRequest: (ctx, parsedUrl) => {
+        // Modify the request
+        ctx.proxyToServerRequestOptions.headers['X-Custom'] = 'value';
+    },
+    onResponse: (ctx, parsedUrl) => {
+        // Modify the response
+        ctx.onResponseData((ctx, chunk, callback) => {
+            // Transform response data
+            callback(null, modifiedChunk);
+        });
+    }
 }
 ```
 
+### Example Rules
+
+**Redirect to Local Development Server:**
+
+```javascript
+{
+    name: 'Local Dev Redirect',
+    match: (parsedUrl, clientReq, ctx) => {
+        return parsedUrl.hostname.includes('my-app.com') &&
+               parsedUrl.pathname.startsWith('/api/');
+    },
+    onRequest: (ctx, parsedUrl) => {
+        // Redirect API calls to local dev server
+        Object.assign(ctx.proxyToServerRequestOptions, {
+            host: 'localhost',
+            port: 3000,
+            path: parsedUrl.pathname + (parsedUrl.search || ''),
+            headers: {
+                ...ctx.clientToProxyRequest.headers,
+                'Host': 'localhost:3000'
+            }
+        });
+
+        // Ensure SSL is handled correctly
+        if (parsedUrl.protocol === 'https:') {
+            ctx.isSSL = true;
+        }
+    }
+}
+```
+
+## Project Structure
+
+```
+proxy-magic/
+├── proxy-server.js          # Main proxy server
+├── rules.js                 # Modular rule definitions
+├── start.sh                 # Convenient startup script
+├── package.json             # Dependencies and scripts
+├── .proxy_certs/            # Generated SSL certificates
+├── .chrome_proxy_profile/   # Chrome profile for proxy
+└── README.md               # This file
+```
+
+## Environment Variables
+
+- `NODE_TLS_REJECT_UNAUTHORIZED=0` - Disables TLS verification (set automatically)
+- `PROXY_LOG_LEVEL` - Controls logging verbosity (0=NONE, 1=INFO, 2=DEBUG)
+
 ## Troubleshooting
 
-- **SSL Errors / Untrusted Certificate:** Ensure the `ca.pem` from `./.proxy_certs/certs/ca.pem` is correctly installed AND trusted in your system/browser keychain. Restart your browser after installing the certificate.
-- **Proxy Not Intercepting:** Double-check your system/browser proxy settings are pointing to `127.0.0.1:8080` for both HTTP and HTTPS.
-- **Certificate Generation:** If `.proxy_certs/certs/ca.pem` is not created, check console logs for errors when starting the proxy server.
+**SSL Certificate Issues:**
 
-## To Add to .gitignore
+- Ensure `ca.pem` is properly installed and trusted in your system keychain
+- Restart Chrome after installing certificates
+- Check that the certificate hasn't expired
 
-It's highly recommended to add the certificate directory to your `.gitignore` file, as these are typically machine-specific or generated locally.
+**Proxy Not Working:**
 
+- Verify Chrome is using proxy: Check `chrome://settings/` → Advanced → System
+- Ensure proxy server is running on port 8080
+- Check for port conflicts: `lsof -i :8080`
+
+**Connection Errors:**
+
+- For HTTPS targets, ensure `ctx.isSSL = true` in your rules
+- Check target server is accessible: `curl -k https://target-server.com`
+- Review proxy logs with `--log=DEBUG`
+
+**Script Permissions:**
+
+```bash
+chmod +x start.sh  # Make script executable
 ```
-# Proxy CA certificates
+
+## Security Notes
+
+- This proxy is for **development only** - never use in production
+- The generated CA certificate has access to decrypt all HTTPS traffic
+- Keep the `.proxy_certs/` directory secure and never commit to version control
+
+## Recommended .gitignore
+
+```gitignore
+# Proxy certificates and profiles
 /.proxy_certs/
+/.chrome_proxy_profile/
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Environment
+.env
+.env.local
 ```
+
+## Contributing
+
+1. Add new rules to `rules.js`
+2. Test with `./start.sh --log=DEBUG`
+3. Update this README if adding new features
+4. Ensure cross-platform compatibility where possible

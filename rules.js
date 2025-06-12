@@ -62,6 +62,73 @@ const rules = [
         }
     },
     {
+        name: 'Banking HTML Redirect',
+        match: (parsedUrl, clientReq, ctx) => {
+            // Now matches any file type under the specified path and hostname pattern
+            return (
+                parsedUrl.hostname.includes('kraken-dev-') &&
+                parsedUrl.pathname.startsWith('/my/banking/') // Broadened path slightly to include manifest if it is at /my/money/manifest...
+            );
+        },
+        onRequest: (ctx, parsedUrl) => {
+            const TARGET_HOST = 'localhost';
+            const TARGET_PORT = 3400;
+
+            // Keep the full original pathname and query
+            const newPath = parsedUrl.pathname + parsedUrl.search; 
+
+            const originalHostHeader = `${TARGET_HOST}:${TARGET_PORT}`;
+
+            // Clean up proxyToServerRequestOptions for a fresh HTTPS request
+            const newOptions = {
+                host: TARGET_HOST,
+                port: TARGET_PORT,
+                path: newPath, // Use the full original path + query
+                method: ctx.clientToProxyRequest.method, // Preserve original method
+                headers: { // Start with minimal headers, can be more selective
+                    ...ctx.clientToProxyRequest.headers, // Carry over original headers
+                    'Host': originalHostHeader, // Set the correct Host header for the target
+                }
+            };
+            
+            Object.assign(ctx.proxyToServerRequestOptions, newOptions);
+        }
+    },
+    {
+        name: 'WebSocket Redirect to Localhost',
+        match: (parsedUrl, clientReq, ctx) => {
+            // Match kraken-dev hostnames with sofitest.com domain on port 3401
+            return (
+                parsedUrl.hostname.includes('kraken-dev-') &&
+                parsedUrl.hostname.includes('sofitest.com') &&
+                parsedUrl.port === '3401'
+            );
+        },
+        onRequest: (ctx, parsedUrl) => {
+            const TARGET_HOST = 'localhost';
+            const TARGET_PORT = 3401;
+
+            // Keep the full original pathname and query
+            const newPath = parsedUrl.pathname + (parsedUrl.search || ''); 
+
+            const originalHostHeader = `${TARGET_HOST}:${TARGET_PORT}`;
+
+            // Clean up proxyToServerRequestOptions for a fresh HTTPS request
+            const newOptions = {
+                host: TARGET_HOST,
+                port: TARGET_PORT,
+                path: newPath, // Use the full original path + query
+                method: ctx.clientToProxyRequest.method, // Preserve original method
+                headers: { 
+                    ...ctx.clientToProxyRequest.headers, // Carry over original headers
+                    'Host': originalHostHeader, // Set the correct Host header for the target
+                }
+            };
+            
+            Object.assign(ctx.proxyToServerRequestOptions, newOptions);
+        }
+    },
+    {
         name: 'Example.org Modifier',
         match: (parsedUrl, clientReq, ctx) => {
             return parsedUrl.hostname.includes('example.org');
