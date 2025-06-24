@@ -31,6 +31,9 @@ get_log_level_number() {
     esac
 }
 
+# Clear the screen
+clear
+
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
