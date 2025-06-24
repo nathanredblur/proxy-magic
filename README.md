@@ -219,10 +219,60 @@ proxy-magic/
 └── README.md               # This file
 ```
 
-## Environment Variables
+## Configuration
+
+### Rules Directory Configuration
+
+The rules folder is configurable through the `.env` file in the project root:
+
+```env
+# Rules directory path (relative to project root)
+RULES_DIR=rules
+
+# Debug mode for rules loading (true/false)
+DEBUG_RULES=false
+```
+
+### Environment Variables
 
 - `NODE_TLS_REJECT_UNAUTHORIZED=0` - Disables TLS verification (set automatically)
 - `PROXY_LOG_LEVEL` - Controls logging verbosity (0=NONE, 1=INFO, 2=DEBUG)
+- `RULES_DIR` - Path to the rules folder (relative to project root, defaults to "rules")
+- `DEBUG_RULES` - Enables debug mode to see detailed rule loading information
+
+### Advanced Configuration
+
+#### Using a Custom Rules Folder
+
+1. Modify the `.env` file:
+
+   ```env
+   RULES_DIR=my-custom-rules
+   ```
+
+2. Create the folder and move/create your rules there
+
+3. Restart the proxy
+
+#### Multiple Rules Folders
+
+To have different sets of rules, you can:
+
+1. Create different folders: `rules-dev/`, `rules-prod/`, etc.
+2. Change `RULES_DIR` according to the environment
+3. Use scripts in `package.json` for different configurations
+
+#### Debug Mode for Rules
+
+To see detailed information about rule loading:
+
+```bash
+# Option 1: Temporary environment variable
+DEBUG_RULES=true node proxy-server.js
+
+# Option 2: Modify .env file
+DEBUG_RULES=true
+```
 
 ## Troubleshooting
 
