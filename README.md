@@ -2,14 +2,41 @@
 
 This project sets up a local Man-in-the-Middle (MITM) proxy server using Node.js and the `http-mitm-proxy` library. It's designed to intercept and modify HTTP/HTTPS traffic for development and testing purposes.
 
-## Features
+## 🚀 Features
 
-- Intercepts HTTP and HTTPS traffic with custom rules
-- Modular rule system for request/response modification (see `rules.js`)
-- Automatic SSL certificate generation and management
-- Multiple startup options with different log levels
-- Automated Chrome browser setup with proxy configuration
-- Clean process management and automatic cleanup
+- **Smart Request Interception**: HTTP and HTTPS traffic with intelligent protocol conversion
+- **Advanced Rule System**: Modular rules for request/response modification (see `rules/` directory)
+- **Automatic SSL Management**: Certificate generation, validation, and cleanup tools
+- **Protocol Conversion**: Seamless HTTP ↔ HTTPS conversion with automatic port detection
+- **Comprehensive Logging**: Detailed request/response logging with curl command generation
+- **Real-time Statistics**: Traffic monitoring with protocol conversion tracking
+- **Manual Response Handling**: Support for custom response processing bypassing proxy limitations
+- **Automated Browser Setup**: Chrome integration with proxy configuration
+- **Clean Process Management**: Automatic cleanup and error handling
+
+## 📊 Advanced Capabilities
+
+### Protocol Intelligence
+
+- **Automatic Protocol Detection**: Smart HTTP/HTTPS switching based on ports (80→HTTP, 443→HTTPS)
+- **Manual Protocol Conversion**: Support for HTTP→HTTPS and HTTPS→HTTP redirections
+- **Port-based Configuration**: Intelligent proxy setup based on target server ports
+- **SSL Certificate Validation**: Advanced certificate management and troubleshooting
+
+### Logging & Debugging
+
+- **Detailed Request Logging**: Complete request/response information with headers
+- **Curl Command Generation**: Automatic curl equivalent commands for testing
+- **Statistics Tracking**: Real-time monitoring of requests, protocol conversions, and rule usage
+- **Error Filtering**: Smart filtering of common connection errors (EPIPE, ECONNRESET)
+- **Rule Validation**: Automatic detection and reporting of rule configuration issues
+
+### Certificate Management
+
+- **Advanced Setup Script**: Improved `setup.sh` with SHA-1 based certificate cleanup
+- **Duplicate Detection**: Automatic detection and removal of duplicate CA certificates
+- **Certificate Validation**: Comprehensive certificate chain verification
+- **Cross-platform Support**: Enhanced certificate installation for macOS, Windows, and Linux
 
 ## Prerequisites
 
@@ -36,6 +63,9 @@ This project sets up a local Man-in-the-Middle (MITM) proxy server using Node.js
     # Start with a specific URL
     ./start.sh https://example.com
 
+    # Test HTTP→HTTPS conversion
+    ./start.sh http://httpbin.org/
+
     # Start with debug logging
     ./start.sh --log=DEBUG
 
@@ -43,7 +73,65 @@ This project sets up a local Man-in-the-Middle (MITM) proxy server using Node.js
     ./start.sh https://github.com --log=INFO
     ```
 
-## Available Startup Methods
+## 🛠️ Certificate Management
+
+### Enhanced Setup Script
+
+The `setup.sh` script now includes advanced certificate management:
+
+```bash
+# Generate and install certificates (recommended)
+./setup.sh
+
+# Show existing certificates
+./setup.sh --show-certs
+
+# Clean up duplicate certificates only
+./setup.sh --clean-only
+
+# Force regeneration of certificates
+./setup.sh --force
+```
+
+**Features:**
+
+- **SHA-1 Based Cleanup**: Removes duplicate certificates by hash instead of name
+- **Validation**: Comprehensive certificate chain verification
+- **Cross-platform**: Support for macOS, Windows, and Linux certificate stores
+- **Duplicate Detection**: Automatic identification of conflicting certificates
+
+### Initial Certificate Setup
+
+The first time you run the proxy, it will generate a root Certificate Authority (CA). You **MUST** install this certificate to avoid SSL warnings:
+
+1. **Generate the CA certificate**:
+
+   ```bash
+   ./setup.sh  # Recommended method
+   ```
+
+2. **Manual Installation** (if setup.sh doesn't work):
+
+   **macOS:**
+
+   1. Open **Keychain Access** → **System** keychain
+   2. Drag `ca.pem` from `./.proxy_certs/certs/ca.pem` into Keychain
+   3. Double-click the certificate → Expand **Trust** section
+   4. Set "When using this certificate:" to **Always Trust**
+
+   **Windows:**
+
+   1. Double-click `ca.pem` → "Install Certificate..." → "Local Machine"
+   2. Select "Trusted Root Certification Authorities"
+
+   **Linux:**
+
+   ```bash
+   sudo cp ./.proxy_certs/certs/ca.pem /usr/local/share/ca-certificates/proxy-magic.crt
+   sudo update-ca-certificates
+   ```
+
+## 🎯 Available Startup Methods
 
 ### Method 1: Automated Script (Recommended)
 
@@ -56,6 +144,7 @@ The `start.sh` script provides the most convenient way to start the proxy server
 # Examples:
 ./start.sh                                    # Start with about:blank
 ./start.sh https://example.com                # Start with specific URL
+./start.sh http://httpbin.org/                # Test HTTP→HTTPS conversion
 ./start.sh --log=DEBUG                       # Start with debug logging
 ./start.sh https://example.com --log=INFO    # URL + log level
 ./start.sh -l DEBUG https://example.com      # Alternative log syntax
@@ -64,8 +153,8 @@ The `start.sh` script provides the most convenient way to start the proxy server
 **Log Levels:**
 
 - `NONE` or `0`: No logging
-- `INFO` or `1`: Standard logging (default)
-- `DEBUG` or `2`: Verbose debugging
+- `INFO` or `1`: Standard logging with statistics (default)
+- `DEBUG` or `2`: Verbose debugging with detailed request/response info
 
 **Features:**
 
@@ -74,17 +163,14 @@ The `start.sh` script provides the most convenient way to start the proxy server
 - Handles process cleanup when Chrome closes
 - Uses persistent Chrome profile in `./.chrome_proxy_profile`
 - Sets `NODE_TLS_REJECT_UNAUTHORIZED=0` for development
+- **Real-time Statistics**: Shows request counts, protocol conversions, and rule usage every 5 minutes
 
 ### Method 2: Package.json Scripts
 
 ```bash
 # Start proxy server and Chrome concurrently
 pnpm start           # Uses concurrently to run both processes
-
-# Start with debug mode
 pnpm debug           # Runs proxy with Node.js debugger
-
-# Run components separately
 pnpm proxy           # Only start the proxy server
 pnpm proxy:debug     # Start proxy with Node.js debugger
 pnpm chrome          # Only start Chrome (proxy must be running)
@@ -105,226 +191,184 @@ node proxy-server.js
   --disable-session-crashed-bubble
 ```
 
-## Initial Certificate Setup
+## 📈 Statistics & Monitoring
 
-The first time you run the proxy, it will generate a root Certificate Authority (CA). You **MUST** install this certificate to avoid SSL warnings:
+The proxy now includes comprehensive statistics tracking:
 
-1. **Generate the CA certificate** (run any startup method once):
+### Real-time Monitoring
 
-   ```bash
-   ./start.sh  # Run once and close Chrome to generate certs
-   ```
+- **Request Counting**: Total requests processed (excluding browser internals)
+- **Protocol Conversions**: HTTP→HTTPS and HTTPS→HTTP conversion tracking
+- **Rule Usage**: Which rules are being used and how often
+- **Unique Hosts**: Number of different domains accessed
+- **Pass-through Requests**: Requests not matched by any rules
 
-2. **Install the CA Certificate** (`./.proxy_certs/certs/ca.pem`):
+### Statistics Display
 
-   **macOS:**
+- **Periodic Reports**: Automatic statistics every 5 minutes during operation
+- **Final Summary**: Complete statistics when proxy shuts down
+- **Filtered Data**: Browser internal requests are filtered from user-relevant statistics
 
-   1. Open **Keychain Access** (Applications > Utilities)
-   2. Select the **System** keychain
-   3. Drag and drop `ca.pem` from `./.proxy_certs/certs/ca.pem` into Keychain
-   4. Double-click the certificate in the list
-   5. Expand the **Trust** section
-   6. Set "When using this certificate:" to **Always Trust**
-   7. Close and enter your admin password
+Example output:
 
-   **Windows:**
-
-   1. Double-click the `ca.pem` file
-   2. Click "Install Certificate..." → "Local Machine"
-   3. Select "Place all certificates in the following store"
-   4. Browse and select "Trusted Root Certification Authorities"
-   5. Complete the installation
-
-   **Linux:**
-
-   ```bash
-   sudo cp ./.proxy_certs/certs/ca.pem /usr/local/share/ca-certificates/proxy-magic.crt
-   sudo update-ca-certificates
-   ```
-
-   **Firefox:** Import separately in Firefox Settings > Privacy & Security > Certificates
-
-## Implementing Custom Rules
-
-Rules are defined in `rules.js` using a modular system. Each rule can:
-
-- Match specific URLs or patterns
-- Modify requests before they reach the target server
-- Modify responses before they reach the client
-
-### Rule Structure
-
-```javascript
-{
-    name: 'My Custom Rule',
-    match: (parsedUrl, clientReq, ctx) => {
-        // Return true if this rule should apply
-        return parsedUrl.hostname.includes('example.com');
-    },
-    onRequest: (ctx, parsedUrl) => {
-        // Modify the request
-        ctx.proxyToServerRequestOptions.headers['X-Custom'] = 'value';
-    },
-    onResponse: (ctx, parsedUrl) => {
-        // Modify the response
-        ctx.onResponseData((ctx, chunk, callback) => {
-            // Transform response data
-            callback(null, modifiedChunk);
-        });
-    }
-}
+```
+📊 ===== PROXY STATISTICS =====
+📊 Uptime: 15 minutes, 30 seconds
+📊 Total Requests: 45 (user requests, browser internals filtered)
+📊 Rules Matched: 12 requests
+📊 Pass-through: 33 requests
+📊 Protocol Conversions: HTTP→HTTPS: 5, HTTPS→HTTP: 2
+📊 Unique Hosts: 8 different domains
+📊 Rules Used: HTTP Testing Demo, HTML Modification Demo
+📊 ===============================
 ```
 
-### Example Rules
+## 🔧 Advanced Rule Capabilities
 
-**Redirect to Local Development Server:**
+### Manual Response Handling
+
+Rules can now handle responses manually, bypassing proxy limitations:
 
 ```javascript
-{
-    name: 'Local Dev Redirect',
-    match: (parsedUrl, clientReq, ctx) => {
-        return parsedUrl.hostname.includes('my-app.com') &&
-               parsedUrl.pathname.startsWith('/api/');
-    },
-    onRequest: (ctx, parsedUrl) => {
-        // Redirect API calls to local dev server
-        Object.assign(ctx.proxyToServerRequestOptions, {
-            host: 'localhost',
-            port: 3000,
-            path: parsedUrl.pathname + (parsedUrl.search || ''),
-            headers: {
-                ...ctx.clientToProxyRequest.headers,
-                'Host': 'localhost:3000'
-            }
-        });
+/** @type {import('./types').Rule} */
+const advancedRule = {
+  name: "Advanced HTTP→HTTPS Conversion",
 
-        // Ensure SSL is handled correctly
-        if (parsedUrl.protocol === 'https:') {
-            ctx.isSSL = true;
-        }
-    }
-}
+  match: (parsedUrl, clientReq, ctx) => {
+    return parsedUrl.hostname === "httpbin.org";
+  },
+
+  onRequest: (ctx, parsedUrl) => {
+    // Mark as manual response to prevent proxy conflicts
+    ctx.isManualResponse = true;
+
+    // Make custom HTTPS request
+    const https = require("https");
+    const httpsReq = https.request(
+      {
+        hostname: "httpbin.org",
+        port: 443,
+        path: "/headers",
+        method: "GET",
+        headers: {
+          /* custom headers */
+        },
+      },
+      (res) => {
+        // Handle response manually
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          ctx.proxyToClientResponse.writeHead(200, {
+            "Content-Type": "application/json",
+          });
+          ctx.proxyToClientResponse.end(
+            JSON.stringify({
+              original: JSON.parse(data),
+              enhanced: "by-proxy-magic",
+            })
+          );
+        });
+      }
+    );
+    httpsReq.end();
+
+    return false; // Indicate manual handling
+  },
+};
 ```
 
-## Project Structure
+### Protocol Conversion Features
+
+- **Automatic Detection**: Port-based protocol detection (80→HTTP, 443→HTTPS)
+- **Manual Override**: Support for custom protocol conversions
+- **Header Management**: Intelligent Host header management for different ports
+- **SSL Context Switching**: Dynamic SSL context based on target requirements
+
+## 🧪 Testing & Examples
+
+### Demo Rules Available
+
+1. **HTTP Testing Demo** (`http-testing-demo.js`): HTTP→HTTPS conversion with httpbin.org
+2. **JSON API Demo** (`json-api-demo.js`): API response modification
+3. **HTML Modification Demo** (`html-modification-demo.js`): Content enhancement
+4. **Local Development Demo** (`local-development-demo.js`): Development server integration
+5. **Site Redirect Demo** (`site-redirect-demo.js`): Real-world site redirection
+
+### Testing Protocol Conversion
+
+```bash
+# Test HTTP→HTTPS conversion
+./start.sh http://httpbin.org/
+
+# Test HTTPS→HTTP conversion
+./start.sh https://test.example/
+
+# Debug protocol issues
+./start.sh http://httpbin.org/ --log=DEBUG
+```
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+1. **Certificate Errors**: Run `./setup.sh --clean-only` then `./setup.sh`
+2. **Protocol Errors**: Check logs for "Protocol 'https:' not supported" - indicates rule configuration issue
+3. **Headers Already Sent**: Indicates multiple response handlers - check for manual response handling
+4. **Connection Refused**: Target server may be down or blocking requests
+
+### Debug Information
+
+With `--log=DEBUG`, you'll see:
+
+- **Complete Request Details**: Headers, methods, URLs
+- **Curl Command Generation**: Equivalent curl commands for testing
+- **Protocol Conversion Tracking**: HTTP↔HTTPS conversions
+- **Rule Processing**: Which rules match and execute
+- **Certificate Chain Info**: SSL certificate validation details
+
+### Advanced Debugging
+
+```bash
+# Show certificate information
+./setup.sh --show-certs
+
+# Clean and regenerate certificates
+./setup.sh --clean-only && ./setup.sh
+
+# Test specific rule with debug
+./start.sh https://example.com --log=DEBUG
+
+# Check proxy statistics
+# (Statistics are shown every 5 minutes and on shutdown)
+```
+
+## 📁 Project Structure
 
 ```
 proxy-magic/
-├── proxy-server.js          # Main proxy server
-├── rules.js                 # Modular rule definitions
+├── README.md                 # This file
+├── proxy-server.js          # Main proxy server with advanced logging
+├── rules.js                 # Rule loader
+├── types.js                 # TypeScript definitions
+├── utils.js                 # Utility functions
+├── setup.sh                 # Advanced certificate management
 ├── start.sh                 # Convenient startup script
-├── package.json             # Dependencies and scripts
-├── .proxy_certs/            # Generated SSL certificates
-├── .chrome_proxy_profile/   # Chrome profile for proxy
-└── README.md               # This file
+├── rules/                   # Rule directory
+│   ├── README.md           # Rule documentation
+│   ├── TEST-CATALOG.md     # Complete testing guide
+│   ├── *.js                # Individual rule files
+└── .proxy_certs/           # Generated certificates (auto-created)
 ```
 
-## Configuration
+## 🤝 Contributing
 
-### Rules Directory Configuration
+1. Create new rules in the `rules/` directory
+2. Follow the `Rule` interface defined in `types.js`
+3. Test with safe domains (httpbin.org, example.com, localhost)
+4. Add comprehensive logging and error handling
+5. Update documentation as needed
 
-The rules folder is configurable through the `.env` file in the project root:
+## 📄 License
 
-```env
-# Rules directory path (relative to project root)
-RULES_DIR=rules
-
-# Debug mode for rules loading (true/false)
-DEBUG_RULES=false
-```
-
-### Environment Variables
-
-- `NODE_TLS_REJECT_UNAUTHORIZED=0` - Disables TLS verification (set automatically)
-- `PROXY_LOG_LEVEL` - Controls logging verbosity (0=NONE, 1=INFO, 2=DEBUG)
-- `RULES_DIR` - Path to the rules folder (relative to project root, defaults to "rules")
-- `DEBUG_RULES` - Enables debug mode to see detailed rule loading information
-
-### Advanced Configuration
-
-#### Using a Custom Rules Folder
-
-1. Modify the `.env` file:
-
-   ```env
-   RULES_DIR=my-custom-rules
-   ```
-
-2. Create the folder and move/create your rules there
-
-3. Restart the proxy
-
-#### Multiple Rules Folders
-
-To have different sets of rules, you can:
-
-1. Create different folders: `rules-dev/`, `rules-prod/`, etc.
-2. Change `RULES_DIR` according to the environment
-3. Use scripts in `package.json` for different configurations
-
-#### Debug Mode for Rules
-
-To see detailed information about rule loading:
-
-```bash
-# Option 1: Temporary environment variable
-DEBUG_RULES=true node proxy-server.js
-
-# Option 2: Modify .env file
-DEBUG_RULES=true
-```
-
-## Troubleshooting
-
-**SSL Certificate Issues:**
-
-- Ensure `ca.pem` is properly installed and trusted in your system keychain
-- Restart Chrome after installing certificates
-- Check that the certificate hasn't expired
-
-**Proxy Not Working:**
-
-- Verify Chrome is using proxy: Check `chrome://settings/` → Advanced → System
-- Ensure proxy server is running on port 8080
-- Check for port conflicts: `lsof -i :8080`
-
-**Connection Errors:**
-
-- For HTTPS targets, ensure `ctx.isSSL = true` in your rules
-- Check target server is accessible: `curl -k https://target-server.com`
-- Review proxy logs with `--log=DEBUG`
-
-**Script Permissions:**
-
-```bash
-chmod +x start.sh  # Make script executable
-```
-
-## Security Notes
-
-- This proxy is for **development only** - never use in production
-- The generated CA certificate has access to decrypt all HTTPS traffic
-- Keep the `.proxy_certs/` directory secure and never commit to version control
-
-## Recommended .gitignore
-
-```gitignore
-# Proxy certificates and profiles
-/.proxy_certs/
-/.chrome_proxy_profile/
-
-# Node.js
-node_modules/
-npm-debug.log*
-
-# Environment
-.env
-.env.local
-```
-
-## Contributing
-
-1. Add new rules to `rules.js`
-2. Test with `./start.sh --log=DEBUG`
-3. Update this README if adding new features
-4. Ensure cross-platform compatibility where possible
+This project is for development and testing purposes. Please use responsibly and in compliance with applicable laws and terms of service.

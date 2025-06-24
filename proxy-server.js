@@ -3,6 +3,41 @@ const path = require('path');
 const rules = require('./rules'); // Import the rules
 const { createErrorPage, reconstructFullUrl, getFullUrlString, requestExpectsHtml, generateCurlCommand } = require('./utils'); // Import utility functions
 
+// RULE VALIDATION SYSTEM
+function validateRules(rules) {
+    logger.log(1, '🔍 Validating proxy rules...');
+    
+    rules.forEach((rule, index) => {
+        const ruleName = rule.name || `Rule #${index + 1}`;
+        
+        // Check required properties
+        if (!rule.match || typeof rule.match !== 'function') {
+            logger.error(`🚨 [RULE VALIDATION] ${ruleName}: Missing or invalid 'match' function`);
+        }
+        
+        // Check optional but recommended properties
+        if (!rule.name) {
+            logger.log(1, `⚠️ [RULE VALIDATION] Rule #${index + 1}: Consider adding a 'name' property for better debugging`);
+        }
+        
+        // Validate onRequest function if present
+        if (rule.onRequest && typeof rule.onRequest !== 'function') {
+            logger.error(`🚨 [RULE VALIDATION] ${ruleName}: 'onRequest' must be a function`);
+        }
+        
+        // Validate onResponse function if present
+        if (rule.onResponse && typeof rule.onResponse !== 'function') {
+            logger.error(`🚨 [RULE VALIDATION] ${ruleName}: 'onResponse' must be a function`);
+        }
+        
+        logger.log(2, `✅ [RULE VALIDATION] ${ruleName}: Basic validation passed`);
+    });
+    
+    logger.log(1, `📋 Loaded ${rules.length} proxy rules from ${__dirname}/rules`);
+}
+
+
+
 // Statistics tracking
 const stats = {
     totalRequests: 0,
@@ -47,7 +82,10 @@ const proxy = new Proxy();
 logger.log(2, '[DEBUG] Proxy object initialized.');
 
 logger.log(1, 'Initializing MITM Proxy Server...');
-logger.log(1, `Log level set to: ${LOG_LEVEL}`)
+logger.log(1, `Log level set to: ${LOG_LEVEL}`);
+
+// Validate rules before starting the proxy
+validateRules(rules);
 
 const caDir = path.join(__dirname, '.proxy_certs');
 const caCertPath = path.join(caDir, 'certs', 'ca.pem');
@@ -57,6 +95,12 @@ logger.log(1, 'Please ensure the root CA certificate is generated and trusted.')
 logger.log(1, `The CA certificate (ca.pem) for this proxy will be stored in: ${caCertPath}`);
 
 proxy.onError(function(ctx, err, errorKind) {
+    // CRITICAL: Check if this is a manual response from a rule
+    if (ctx && ctx.isManualResponse) {
+        logger.log(1, `🔧 [HTTP DEMO] Ignoring proxy error for manual response: ${errorKind} (${err.code})`);
+        return; // Don't interfere with manual responses
+    }
+    
     // Filter out common/expected errors that create noise
     const isCommonError = (
         err.code === 'EPIPE' || 
@@ -184,7 +228,10 @@ proxy.onRequest(function(ctx, callback) {
         reqUrl.includes('googleapis.com') ||
         reqUrl.includes('google.com') ||
         reqUrl.includes('chrome-extension') ||
-        reqUrl.includes('moz-extension')
+        reqUrl.includes('moz-extension') ||
+        reqUrl.includes('optimizationguide-pa.googleapis.com') ||
+        reqUrl.includes('update.googleapis.com') ||
+        reqUrl.includes('clientservices.googleapis.com')
     );
     
     if (!isInternalRequest) {
@@ -241,53 +288,84 @@ proxy.onRequest(function(ctx, callback) {
                 }
                 if (rule.onRequest) {
                     logger.log(2, `[DEBUG onRequest] Executing onRequest for rule '${rule.name || 'Unnamed Rule'}'`);
-                    rule.onRequest(ctx, parsedUrl);
+                    const ruleResult = rule.onRequest(ctx, parsedUrl);
+                    
+                    // Check if rule is handling response manually
+                    if (ruleResult === false || ctx.isManualResponse) {
+                        logger.log(1, `🔧 [MANUAL RESPONSE] Rule '${rule.name}' is handling response manually - skipping proxy processing`);
+                        return; // Don't call callback() - let the rule handle everything
+                    }
                 }
                 
-                // Ensure Host header is set correctly after rule processing
+                // INTELLIGENT RULE POST-PROCESSING: Auto-fix common rule configuration issues
                 if (ctx.proxyToServerRequestOptions && ctx.proxyToServerRequestOptions.hostname) {
-                    ctx.proxyToServerRequestOptions.headers = ctx.proxyToServerRequestOptions.headers || {};
-                    const port = ctx.proxyToServerRequestOptions.port;
-                    const hostname = ctx.proxyToServerRequestOptions.hostname;
+                    const options = ctx.proxyToServerRequestOptions;
+                    const originalIsSSL = ctx.isSSL;
                     
-                    // CRITICAL: Handle HTTPS -> HTTP redirection
-                    // If redirecting to port 80 (HTTP), force non-SSL connection
+                    // Ensure headers are initialized
+                    options.headers = options.headers || {};
+                    
+                    // SMART PORT/PROTOCOL DETECTION AND AUTO-CORRECTION
+                    const port = options.port;
+                    const hostname = options.hostname;
+                    
+                    // Smart protocol detection based on port
+                    // The key insight: we need to set ctx.isSSL BEFORE the library makes the request
                     if (port === 80) {
                         ctx.isSSL = false;
-                        ctx.forceHttp = true; // Custom flag to force HTTP
-                        // Override the proxy options to use HTTP
-                        ctx.proxyToServerRequestOptions.protocol = 'http:';
-                        ctx.proxyToServerRequestOptions.agent = false; // Use default HTTP agent
-                        
-                        // Update statistics for HTTPS -> HTTP redirection
-                        if (clientReq.headers.host && clientReq.headers.host !== hostname) {
-                            stats.httpsToHttp++;
-                        }
-                        
-                        logger.log(2, `[DEBUG onRequest] Forcing HTTP connection for port 80 redirect`);
+                        options.protocol = 'http:';
+                        options.agent = false; // Use default HTTP agent
+                        logger.log(1, `🔧 [AUTO-FIX] Port 80 → HTTP protocol`);
                     } else if (port === 443) {
                         ctx.isSSL = true;
-                        ctx.forceHttp = false;
-                        ctx.proxyToServerRequestOptions.protocol = 'https:';
-                        
-                        // Update statistics for HTTP -> HTTPS redirection  
-                        if (clientReq.headers.host && clientReq.headers.host !== hostname && !ctx.isSSL) {
-                            stats.httpToHttps++;
-                        }
-                        
-                        logger.log(2, `[DEBUG onRequest] Using HTTPS connection for port 443`);
+                        options.protocol = 'https:';
+                        logger.log(1, `🔧 [AUTO-FIX] Port 443 → HTTPS protocol`);
+                    } else {
+                        // For non-standard ports, keep original SSL setting but warn
+                        logger.log(1, `⚠️ [AUTO-FIX] Non-standard port ${port}, keeping SSL=${ctx.isSSL}`);
                     }
                     
+                                        // Update statistics for protocol conversions
+                    if (originalIsSSL !== ctx.isSSL && clientReq.headers.host && clientReq.headers.host !== hostname) {
+                        if (originalIsSSL && !ctx.isSSL) {
+                            stats.httpsToHttp++;
+                            logger.log(1, `📊 [STATS] HTTPS → HTTP redirection: ${clientReq.headers.host} → ${hostname}:${port}`);
+                        } else if (!originalIsSSL && ctx.isSSL) {
+                            stats.httpToHttps++;
+                            logger.log(1, `📊 [STATS] HTTP → HTTPS redirection: ${clientReq.headers.host} → ${hostname}:${port}`);
+                        }
+                    }
+                    
+                    // SMART HOST HEADER MANAGEMENT
                     // Set Host header based on target hostname and port
                     if (port === 80 || port === 443) {
-                        ctx.proxyToServerRequestOptions.headers.host = hostname;
+                        options.headers.host = hostname;
                     } else {
-                        ctx.proxyToServerRequestOptions.headers.host = `${hostname}:${port}`;
+                        options.headers.host = `${hostname}:${port}`;
                     }
                     
-                    logger.log(2, `[DEBUG onRequest] Rule processed - Set Host header to: ${ctx.proxyToServerRequestOptions.headers.host}, SSL: ${ctx.isSSL}`);
+                    // INTELLIGENT PATH VALIDATION
+                    if (!options.path || options.path === 'undefined') {
+                        options.path = '/';
+                        logger.log(1, `🔧 [AUTO-FIX] Missing or invalid path → set to '/'`);
+                    }
+                    
+                    // ENSURE METHOD IS SET
+                    if (!options.method) {
+                        options.method = clientReq.method || 'GET';
+                        logger.log(2, `[AUTO-FIX] Missing method → set to '${options.method}'`);
+                    }
+                    
+                    // VALIDATE HOSTNAME
+                    if (!hostname || hostname === 'undefined') {
+                        logger.error(`🚨 [RULE ERROR] Invalid hostname after rule processing: '${hostname}'`);
+                        logger.error(`🚨 [RULE ERROR] Rule '${ctx.matchedRule.name}' may have configuration issues`);
+                    }
+                    
+                    logger.log(2, `[DEBUG onRequest] Rule processed - Host: ${options.headers.host}, SSL: ${ctx.isSSL}, Protocol: ${options.protocol || 'auto'}`);
                 } else {
-                    logger.error(`[DEBUG onRequest] Rule processed but proxyToServerRequestOptions is invalid`);
+                    logger.error(`🚨 [RULE ERROR] Rule processed but proxyToServerRequestOptions is invalid`);
+                    logger.error(`🚨 [RULE ERROR] Rule '${ctx.matchedRule?.name || 'Unknown'}' may need to be fixed`);
                 }
                 
                 break; // Stop after first matching rule
