@@ -12,141 +12,126 @@ const jsonApiDemo = {
     },
 
     /**
-     * Redirect to a consistent API endpoint and prevent compression
+     * Setup request using official Proxy.gunzip approach with gzip compression
      */
     onRequest: (ctx, parsedUrl) => {
         console.log(`📊 [API DEMO] Intercepting API request: ${parsedUrl.href}`);
         
+        console.log(`🔧 [API DEMO] Using Proxy.gunzip with gzip compression (brotli not supported)`);
+        
         // Redirect to posts endpoint for consistent testing
         ctx.proxyToServerRequestOptions.hostname = 'jsonplaceholder.typicode.com';
         ctx.proxyToServerRequestOptions.port = 443;
-        ctx.proxyToServerRequestOptions.path = '/posts/1';
+        ctx.proxyToServerRequestOptions.path = '/posts/1?proxy_test=true&demo_mode=gzip_compression&timestamp=' + Date.now();
         
-        // Add API-specific headers
+        // USE ONLY GZIP compression (Proxy.gunzip supports this)
+        const originalEncoding = ctx.proxyToServerRequestOptions.headers['accept-encoding'];
+        console.log(`📊 [API DEMO] Original accept-encoding: ${originalEncoding}`);
+        
+        // Force gzip only (Proxy.gunzip supports gzip and deflate, but not brotli)
+        ctx.proxyToServerRequestOptions.headers['accept-encoding'] = 'gzip, deflate';
+        console.log(`🔧 [API DEMO] Modified accept-encoding: gzip, deflate (removed brotli/zstd - Proxy.gunzip compatible)`);
+        
+        // Add custom headers for testing
         ctx.proxyToServerRequestOptions.headers['X-API-Test'] = 'JSON Manipulation Demo';
         ctx.proxyToServerRequestOptions.headers['X-Proxy-Enhanced'] = 'true';
         ctx.proxyToServerRequestOptions.headers['X-Original-Path'] = parsedUrl.pathname;
         
-        // CRITICAL: Remove compression headers to get uncompressed JSON
-        console.log(`🔧 [API DEMO] Disabling compression by modifying accept-encoding header`);
-        ctx.proxyToServerRequestOptions.headers['accept-encoding'] = 'identity';
+        // ENABLE Proxy.gunzip for automatic decompression
+        ctx.use(Proxy.gunzip);
+        console.log(`✅ [API DEMO] Proxy.gunzip enabled - should handle gzip/deflate automatically`);
         
-        // Add query parameters for testing
-        const url = new URL(`https://${ctx.proxyToServerRequestOptions.hostname}${ctx.proxyToServerRequestOptions.path}`);
-        url.searchParams.set('proxy_test', 'true');
-        url.searchParams.set('demo_mode', 'json_api');
-        url.searchParams.set('timestamp', Date.now().toString());
-        
-        ctx.proxyToServerRequestOptions.path = url.pathname + url.search;
-        
-        console.log(`✅ [API DEMO] Request modification complete - compression disabled`);
-    },
-
-    /**
-     * Modify JSON responses by collecting all data and modifying at the end
-     */
-    onResponse: (ctx, parsedUrl) => {
-        console.log(`📨 [API DEMO] Processing JSON response`);
-        
-        const contentType = ctx.serverToProxyResponse.headers['content-type'] || '';
-        console.log(`📊 [API DEMO] Response Content-Type: ${contentType}`);
-        
-        // Only modify JSON responses
-        if (contentType.includes('application/json')) {
-            console.log(`📊 [API DEMO] Content-Type is JSON - proceeding with modification`);
+        // Set up response data handler
+        ctx.onResponseData(function(ctx, chunk, responseCallback) {
+            console.log(`📦 [API DEMO] onResponseData called - received chunk: ${chunk.length} bytes`);
             
-            // Add safe headers that don't conflict with proxy
-            ctx.proxyToClientResponse.setHeader('X-Proxy-Magic-Test', 'JSON API Demo Active');
-            ctx.proxyToClientResponse.setHeader('X-Test-Timestamp', new Date().toISOString());
-            ctx.proxyToClientResponse.setHeader('X-Demo-Type', 'JSON API Testing');
+            const contentType = ctx.serverToProxyResponse.headers['content-type'] || '';
+            const contentEncoding = ctx.serverToProxyResponse.headers['content-encoding'] || 'none';
+            console.log(`📊 [API DEMO] Content-Type: ${contentType}`);
+            console.log(`📊 [API DEMO] Content-Encoding: ${contentEncoding}`);
             
-            // Collect all response data first
-            let responseBuffer = Buffer.alloc(0);
-            let dataCollectionComplete = false;
+            // Only process JSON responses
+            if (!contentType.includes('application/json')) {
+                console.log(`⚠️ [API DEMO] Not a JSON response, passing through unchanged`);
+                return responseCallback(null, chunk);
+            }
             
-            ctx.onResponseData(function(ctx, chunk, callback) {
-                console.log(`📊 [API DEMO] Collecting chunk: ${chunk.length} bytes`);
-                responseBuffer = Buffer.concat([responseBuffer, chunk]);
+            console.log(`📊 [API DEMO] JSON response detected - Proxy.gunzip should have decompressed it`);
+            
+            try {
+                // Convert chunk to string (should be decompressed by Proxy.gunzip)
+                const jsonString = chunk.toString('utf8');
+                console.log(`📊 [API DEMO] JSON string: ${jsonString.length} chars`);
+                console.log(`📊 [API DEMO] JSON preview: ${jsonString.substring(0, 200)}...`);
                 
-                // Don't send data yet - collect it all first
-                callback(null, null);
-            });
-            
-            ctx.onResponseEnd(function(ctx, callback) {
-                console.log(`📊 [API DEMO] All data collected. Total size: ${responseBuffer.length} bytes`);
-                dataCollectionComplete = true;
-                
-                try {
-                    const jsonString = responseBuffer.toString('utf8');
-                    console.log(`📊 [API DEMO] Raw JSON (first 200 chars): ${jsonString.substring(0, 200)}`);
+                // Check if it looks like JSON (starts with { or [)
+                if (!jsonString.trim().startsWith('{') && !jsonString.trim().startsWith('[')) {
+                    console.log(`❌ [API DEMO] Data doesn't look like JSON, Proxy.gunzip might not have worked`);
+                    console.log(`📊 [API DEMO] Raw data (hex): ${chunk.toString('hex').substring(0, 100)}...`);
                     
-                    let jsonData = JSON.parse(jsonString);
-                    console.log(`📊 [API DEMO] Successfully parsed JSON:`, jsonData);
-                    
-                    // Add test metadata to the JSON response
-                    jsonData._proxyMagicTest = {
-                        testActive: true,
-                        originalHost: parsedUrl.hostname,
-                        modifiedHost: ctx.proxyToServerRequestOptions.hostname || 'unknown',
-                        timestamp: new Date().toISOString(),
-                        scenario: 'JSON API Response Modification (Buffered)',
-                        demoVersion: '4.6',
-                        originalUrl: parsedUrl.href,
-                        modifiedUrl: `https://${ctx.proxyToServerRequestOptions.hostname}${ctx.proxyToServerRequestOptions.path}`,
-                        compressionDisabled: true,
-                        method: 'Buffer and Replace',
-                        bufferedMode: true
+                    // Return error response
+                    const errorResponse = {
+                        error: "Data still appears compressed",
+                        contentEncoding: contentEncoding,
+                        dataPreview: jsonString.substring(0, 100),
+                        hexPreview: chunk.toString('hex').substring(0, 100),
+                        note: "Proxy.gunzip may not support this compression type"
                     };
-                    
-                    // Add a test field to demonstrate modification
-                    if (jsonData.title) {
-                        const originalTitle = jsonData.title;
-                        jsonData.title = `🚀 [PROXY MODIFIED] ${originalTitle}`;
-                        jsonData.originalTitle = originalTitle;
-                        console.log(`📊 [API DEMO] Modified title: ${originalTitle} → ${jsonData.title}`);
-                    }
-                    
-                    // Add test array if it doesn't exist
-                    if (!jsonData.testArray) {
-                        jsonData.testArray = ['proxy', 'magic', 'demo', 'json-modification', 'buffered-mode'];
-                    }
-                    
-                    // Add more visible modifications
-                    jsonData.proxyMagicActive = true;
-                    jsonData.modificationCount = (jsonData.modificationCount || 0) + 1;
-                    jsonData.compressionDisabled = true;
-                    jsonData.bufferedMode = true;
-                    jsonData.safeMode = true;
-                    jsonData.proxyHeadersRespected = true;
-                    
-                    const modifiedJson = JSON.stringify(jsonData, null, 2);
-                    console.log(`✨ [API DEMO] JSON modification complete!`);
-                    console.log(`📊 [API DEMO] Sending modified JSON (${modifiedJson.length} chars)`);
-                    
-                    // Now manually send all the data at once
-                    ctx.proxyToClientResponse.write(modifiedJson);
-                    ctx.proxyToClientResponse.end();
-                    
-                    console.log(`🎉 [API DEMO] Modified JSON sent successfully!`);
-                    
-                    // Don't call the callback since we handled the response manually
-                    
-                } catch (e) {
-                    console.log(`⚠️ [API DEMO] Could not parse JSON: ${e.message}`);
-                    console.log(`⚠️ [API DEMO] Raw data (first 200 chars): ${responseBuffer.toString().substring(0, 200)}`);
-                    
-                    // Send original data if parsing fails
-                    ctx.proxyToClientResponse.write(responseBuffer);
-                    ctx.proxyToClientResponse.end();
-                    
-                    console.log(`🎉 [API DEMO] Original data sent due to parsing error`);
+                    return responseCallback(null, Buffer.from(JSON.stringify(errorResponse, null, 2), 'utf8'));
                 }
-            });
-        } else {
-            console.log(`⚠️ [API DEMO] Content-Type is not JSON (${contentType}) - skipping modification`);
-        }
+                
+                // Parse the JSON
+                const jsonData = JSON.parse(jsonString);
+                console.log(`✅ [API DEMO] JSON parsed successfully!`);
+                
+                // Modify the JSON
+                const modifiedJson = {
+                    ...jsonData,
+                    title: `🎉 [GZIP SUCCESS!] ${jsonData.title || 'Modified Title'}`,
+                    proxyModified: true,
+                    proxyTimestamp: new Date().toISOString(),
+                    proxySuccess: "🎉 SUCCESS! Proxy.gunzip working with gzip compression!",
+                    originalData: jsonData,
+                    compressionInfo: {
+                        method: 'Proxy.gunzip with gzip/deflate compression',
+                        contentEncoding: contentEncoding,
+                        proxyGunzipWorking: true,
+                        supportedCompressions: ['gzip', 'deflate'],
+                        notSupported: ['brotli', 'zstd']
+                    }
+                };
+                
+                const modifiedResponse = JSON.stringify(modifiedJson, null, 2);
+                console.log(`🎯 [API DEMO] Modified JSON ready (${modifiedResponse.length} chars)`);
+                console.log(`📊 [API DEMO] Modified preview: ${modifiedResponse.substring(0, 300)}...`);
+                
+                // Return modified JSON as buffer
+                const modifiedBuffer = Buffer.from(modifiedResponse, 'utf8');
+                console.log(`🎉 [API DEMO] SUCCESS! Returning modified JSON with gzip compression!`);
+                return responseCallback(null, modifiedBuffer);
+                
+            } catch (parseError) {
+                console.error(`❌ [API DEMO] JSON parse error:`, parseError.message);
+                console.log(`📊 [API DEMO] Raw chunk data: ${chunk.toString('utf8').substring(0, 500)}`);
+                console.log(`📊 [API DEMO] Raw chunk hex: ${chunk.toString('hex').substring(0, 200)}`);
+                
+                // Return error as JSON
+                const errorResponse = {
+                    error: "JSON Parse Error (Gzip Test)",
+                    message: parseError.message,
+                    rawDataPreview: chunk.toString('utf8').substring(0, 500),
+                    hexPreview: chunk.toString('hex').substring(0, 200),
+                    contentEncoding: contentEncoding,
+                    compressionNote: "Using gzip/deflate - Proxy.gunzip compatible"
+                };
+                
+                const errorBuffer = Buffer.from(JSON.stringify(errorResponse, null, 2), 'utf8');
+                console.log(`📊 [API DEMO] Parse error response prepared`);
+                return responseCallback(null, errorBuffer);
+            }
+        });
         
-        console.log(`✅ [API DEMO] Response processing setup complete`);
+        console.log(`✅ [API DEMO] Request setup complete - testing with gzip compression`);
     }
 };
 
