@@ -1,11 +1,12 @@
-# MITM Proxy Server for Development
+# Proxy Magic - MITM Proxy Server for Development
 
 This project sets up a local Man-in-the-Middle (MITM) proxy server using Node.js and the `http-mitm-proxy` library. It's designed to intercept and modify HTTP/HTTPS traffic for development and testing purposes.
 
 ## 🚀 Features
 
 - **Smart Request Interception**: HTTP and HTTPS traffic with intelligent protocol conversion
-- **Advanced Rule System**: Modular rules for request/response modification (see `rules/` directory)
+- **Advanced Modular Rule System**: Hot-reloadable rules for request/response modification (see `rules/` directory)
+- **Interactive Terminal UI** (Optional): Real-time rule management with keyboard controls
 - **Automatic SSL Management**: Certificate generation, validation, and cleanup tools
 - **Protocol Conversion**: Seamless HTTP ↔ HTTPS conversion with automatic port detection
 - **Comprehensive Logging**: Detailed request/response logging with curl command generation
@@ -31,6 +32,14 @@ This project sets up a local Man-in-the-Middle (MITM) proxy server using Node.js
 - **Error Filtering**: Smart filtering of common connection errors (EPIPE, ECONNRESET)
 - **Rule Validation**: Automatic detection and reporting of rule configuration issues
 
+### Interactive Terminal UI (New!)
+
+- **Optional TUI Interface**: Start with `--ui` flag for interactive management
+- **Real-time Log Display**: Organized, color-coded logs with filtering
+- **Rule Management**: Enable/disable rules with keyboard shortcuts
+- **Persistent Configuration**: Rule states saved automatically
+- **Hot Reload**: Dynamic rule reloading without restarting the proxy
+
 ### Certificate Management
 
 - **Advanced Setup Script**: Improved `setup.sh` with SHA-1 based certificate cleanup
@@ -54,24 +63,189 @@ This project sets up a local Man-in-the-Middle (MITM) proxy server using Node.js
     # or yarn install
     ```
 
-2.  **Start with the convenient script:**
+2.  **Choose your mode:**
 
     ```bash
-    # Start proxy and Chrome with default settings
+    # Background mode (no UI, manual browser setup)
     ./start.sh
 
-    # Start with a specific URL
-    ./start.sh https://example.com
+    # Interactive UI mode
+    ./start.sh --ui
 
-    # Test HTTP→HTTPS conversion
-    ./start.sh http://httpbin.org/
+    # Background mode + auto Chrome launch
+    ./start.sh --chrome
 
-    # Start with debug logging
-    ./start.sh --log=DEBUG
+    # Interactive UI + auto Chrome launch
+    ./start.sh --ui --chrome
 
-    # Start with specific URL and log level
-    ./start.sh https://github.com --log=INFO
+    # With debug logging
+    ./start.sh --ui --chrome --debug --log=DEBUG
+
+    # Show all options
+    ./start.sh --help
     ```
+
+3.  **Available Modes:**
+    - **Background Mode**: Proxy runs in background, configure browser manually
+    - **UI Mode**: Interactive terminal with real-time logs and rule management
+    - **Chrome Mode**: Automatically launches Chrome with proxy configuration
+    - **Combined**: UI + Chrome for full interactive experience
+
+## 🎮 Interactive Terminal UI
+
+### Starting the UI
+
+The Interactive Terminal UI can be enabled with the `--ui` flag:
+
+```bash
+./start.sh --ui                   # Start with UI mode
+./start.sh --ui --chrome         # Start with UI and auto Chrome
+./start.sh --ui --debug          # Start with UI and debug mode
+node start-proxy.js --ui         # Direct start with UI
+```
+
+### UI Features
+
+- **Split Panel Layout**:
+  - Top: Real-time logs with colors and filtering
+  - Bottom: Rule list with status indicators
+- **Keyboard Controls**:
+  - `↑/↓`: Navigate between rules
+  - `Space`: Toggle rule on/off
+  - `Enter`: View rule details
+  - `r`: Reload all rules
+  - `c`: Clear logs
+  - `f`: Filter logs by type/domain
+  - `b`: Launch Chrome browser with proxy
+  - `q`: Quit
+  - `F1`: Help/shortcuts
+  - `Tab`: Switch between panels
+
+### Rule Management
+
+- **Visual Status**: ✅ Active / ❌ Inactive rules
+- **Hot Reload**: Rules reload instantly when files change
+- **Persistent State**: Rule on/off states saved to `config/rules-state.json`
+- **Real-time Updates**: See rule activity and request counts live
+
+### UI Features in Detail
+
+**Split Panel Layout:**
+
+- **Top Panel (70%)**: Real-time scrolling logs with color coding
+- **Bottom Panel (30%)**: Interactive rule list with navigation
+
+**Live Logging:**
+
+- 🔵 **REQUEST** - Incoming HTTP requests
+- 🟢 **RESPONSE** - HTTP responses with status codes
+- 🔴 **ERROR** - Proxy and connection errors
+- 🟣 **RULE** - Rule activation and management events
+- 🟡 **SYSTEM** - System status and startup messages
+- 🔵 **STATS** - Statistics and performance data
+
+**Rule Management Interface:**
+
+- Navigate with ↑/↓ or j/k (vi-style)
+- Toggle rules on/off with Space
+- View detailed rule information with Enter
+- Real-time usage counters and statistics
+- Color-coded status indicators
+
+**Keyboard Shortcuts Summary:**
+
+```
+Global Commands:
+  F1, ?       Help overlay
+  Tab         Switch panels
+  q, Ctrl+C   Quit
+  Esc         Close overlays
+  b           Launch Chrome browser
+  c           Clear logs
+  r           Reload rules
+
+Navigation:
+  ↑/↓, j/k    Navigate rules
+  Space       Toggle rule
+  Enter       Rule details
+  Page Up/Dn  Scroll logs
+```
+
+### Example Usage Session
+
+**Option 1: Background Mode + Auto Chrome**
+
+1. **Start**: `./start.sh --chrome`
+2. **Chrome launches automatically** with proxy configured
+3. **Browse websites** - all traffic will be intercepted and logged
+
+**Option 2: Interactive UI Mode**
+
+1. **Start with UI**: `./start.sh --ui`
+2. **Launch Chrome**: Press `b` to open Chrome with proxy
+3. **Navigate to Rules Panel**: Press `Tab`
+4. **Browse Rules**: Use ↑/↓ to select rules
+5. **Toggle a Rule**: Press `Space` to enable/disable
+6. **View Details**: Press `Enter` for rule information
+7. **Monitor Activity**: Press `Tab` to return to logs
+8. **Clear Logs**: Press `c` to clear the log panel
+9. **Get Help**: Press `F1` for complete help
+
+**Option 3: Combined Mode (Recommended)**
+
+1. **Start**: `./start.sh --ui --chrome`
+2. **Chrome launches automatically** + **Interactive UI available**
+3. **Best of both worlds**: Auto setup + manual control
+
+### Live Demo
+
+**Background Mode** (`./start.sh --chrome`):
+
+```
+🎯 Proxy Magic Startup
+=====================
+
+Configuration:
+  🌐 Proxy: http://127.0.0.1:8080
+  🎮 Interactive UI: Disabled
+  🌐 Auto Chrome: Enabled
+  📊 Log Level: INFO (1)
+  🐛 Debug Mode: Disabled
+
+🚀 Starting Proxy Magic in background mode...
+📱 Chrome will be launched automatically
+
+✅ Proxy server started (PID: 1234)
+🌐 Proxy URL: http://127.0.0.1:8080
+🚀 Launching Chrome browser automatically...
+✅ Chrome launched with URL: http://httpbin.org/
+🌐 Chrome configured with proxy: http://127.0.0.1:8080
+
+⌨️  Press Ctrl+C to stop the proxy and Chrome
+```
+
+**UI Mode** (`./start.sh --ui --chrome`):
+
+```
+┌─ 📜 Logs ─────────────────────────────────────────────────┐
+│ 14:23:45 [SYSTEM  ] 🎮 Interactive Terminal UI started    │
+│ 14:23:45 [SYSTEM  ] 📋 Loaded 6 enabled rules             │
+│ 14:23:45 [SYSTEM  ] 🚀 Proxy server started successfully  │
+│ 14:23:45 [SYSTEM  ] 🚀 Launching Chrome browser automatically... │
+│ 14:24:12 [SYSTEM  ] ✅ Chrome launched with URL: http://httpbin.org/ │
+│ 14:24:12 [SYSTEM  ] 🌐 Chrome configured with proxy: http://127.0.0.1:8080 │
+│ 14:24:15 [REQUEST ] GET /feeds/posts/                     │
+│ 14:24:15 [RESPONSE] GET /feeds/posts/ 200                 │
+│ 14:24:18 [RULE    ] Example.org Modifier: enabled        │
+└───────────────────────────────────────────────────────────┘
+┌─ ⚙️ Rules ────────────────────────────────────────────────┐
+│ ✅ Example.org Modifier [user-rules] (12 uses)           │
+│ ❌ HTTP Testing Demo [rules]                              │
+│ ✅ JSON API Demo [rules] (3 uses)                        │
+│ ✅ Banking 3400 [user-rules] (45 uses)                   │
+└───────────────────────────────────────────────────────────┘
+🌐 Chrome: Running | Panel: RULES | Rules: 4/6 enabled | Logs: 156 | Press F1 for help, b for browser
+```
 
 ## 🛠️ Certificate Management
 
@@ -139,16 +313,23 @@ The `start.sh` script provides the most convenient way to start the proxy server
 
 ```bash
 # Basic usage
-./start.sh [URL] [--log=LEVEL | -l LEVEL]
+./start.sh [URL] [--ui] [--log=LEVEL | -l LEVEL]
 
 # Examples:
 ./start.sh                                    # Start with about:blank
+./start.sh --ui                              # Start with Interactive UI
 ./start.sh https://example.com                # Start with specific URL
+./start.sh https://example.com --ui          # Start with UI and URL
 ./start.sh http://httpbin.org/                # Test HTTP→HTTPS conversion
 ./start.sh --log=DEBUG                       # Start with debug logging
 ./start.sh https://example.com --log=INFO    # URL + log level
-./start.sh -l DEBUG https://example.com      # Alternative log syntax
+./start.sh -l DEBUG https://example.com --ui # Alternative log syntax with UI
 ```
+
+**Command Line Options:**
+
+- `--ui`: Start Interactive Terminal UI
+- `--log=LEVEL` or `-l LEVEL`: Set log level (NONE/0, INFO/1, DEBUG/2)
 
 **Log Levels:**
 
@@ -165,7 +346,20 @@ The `start.sh` script provides the most convenient way to start the proxy server
 - Sets `NODE_TLS_REJECT_UNAUTHORIZED=0` for development
 - **Real-time Statistics**: Shows request counts, protocol conversions, and rule usage every 5 minutes
 
-### Method 2: Package.json Scripts
+### Method 2: Direct Node.js
+
+```bash
+# Start proxy server with UI
+node start-proxy.js --ui
+
+# Start proxy server normally
+node start-proxy.js
+
+# Start with debug logging
+DEBUG_RULES=true node start-proxy.js --ui
+```
+
+### Method 3: Package.json Scripts
 
 ```bash
 # Start proxy server and Chrome concurrently
@@ -174,21 +368,6 @@ pnpm debug           # Runs proxy with Node.js debugger
 pnpm proxy           # Only start the proxy server
 pnpm proxy:debug     # Start proxy with Node.js debugger
 pnpm chrome          # Only start Chrome (proxy must be running)
-```
-
-### Method 3: Manual Startup
-
-```bash
-# Start proxy server manually
-export NODE_TLS_REJECT_UNAUTHORIZED=0
-node start-proxy.js
-
-# In another terminal, start Chrome with proxy
-/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
-  --proxy-server="http://127.0.0.1:8080" \
-  --user-data-dir="./.chrome_proxy_profile" \
-  --no-first-run \
-  --disable-session-crashed-bubble
 ```
 
 ## 📈 Statistics & Monitoring
@@ -208,6 +387,7 @@ The proxy now includes comprehensive statistics tracking:
 - **Periodic Reports**: Automatic statistics every 5 minutes during operation
 - **Final Summary**: Complete statistics when proxy shuts down
 - **Filtered Data**: Browser internal requests are filtered from user-relevant statistics
+- **Interactive UI**: Real-time statistics in the terminal interface
 
 Example output:
 
@@ -294,6 +474,7 @@ const advancedRule = {
 3. **HTML Modification Demo** (`html-modification-demo.js`): Content enhancement
 4. **Local Development Demo** (`local-development-demo.js`): Development server integration
 5. **Site Redirect Demo** (`site-redirect-demo.js`): Real-world site redirection
+6. **Example Org Modifier** (`example-org-modifier.js`): Simple HTML modification example
 
 ### Testing Protocol Conversion
 
@@ -301,11 +482,14 @@ const advancedRule = {
 # Test HTTP→HTTPS conversion
 ./start.sh http://httpbin.org/
 
+# Test with Interactive UI
+./start.sh http://httpbin.org/ --ui
+
 # Test HTTPS→HTTP conversion
 ./start.sh https://test.example/
 
 # Debug protocol issues
-./start.sh http://httpbin.org/ --log=DEBUG
+./start.sh http://httpbin.org/ --log=DEBUG --ui
 ```
 
 ## 🔍 Troubleshooting
@@ -316,6 +500,7 @@ const advancedRule = {
 2. **Protocol Errors**: Check logs for "Protocol 'https:' not supported" - indicates rule configuration issue
 3. **Headers Already Sent**: Indicates multiple response handlers - check for manual response handling
 4. **Connection Refused**: Target server may be down or blocking requests
+5. **UI Display Issues**: Ensure terminal supports colors and has adequate size (80x24 minimum)
 
 ### Debug Information
 
@@ -336,8 +521,8 @@ With `--log=DEBUG`, you'll see:
 # Clean and regenerate certificates
 ./setup.sh --clean-only && ./setup.sh
 
-# Test specific rule with debug
-./start.sh https://example.com --log=DEBUG
+# Test specific rule with debug and UI
+./start.sh https://example.com --log=DEBUG --ui
 
 # Check proxy statistics
 # (Statistics are shown every 5 minutes and on shutdown)
@@ -347,28 +532,104 @@ With `--log=DEBUG`, you'll see:
 
 ```
 proxy-magic/
-├── README.md                 # This file
-├── start-proxy.js          # Main proxy server with advanced logging
-├── rules.js                 # Rule loader
-├── types.js                 # TypeScript definitions
-├── utils.js                 # Utility functions
-├── setup.sh                 # Advanced certificate management
-├── start.sh                 # Convenient startup script
-├── rules/                   # Rule directory
-│   ├── README.md           # Rule documentation
-│   ├── TEST-CATALOG.md     # Complete testing guide
-│   ├── *.js                # Individual rule files
-└── .proxy_certs/           # Generated certificates (auto-created)
+├── README.md                   # This file
+├── start-proxy.js             # Main entry point
+├── types.js                   # TypeScript definitions
+├── setup.sh                   # Advanced certificate management
+├── start.sh                   # Convenient startup script
+├── src/                       # Core source code
+│   ├── proxy-server.js        # Main proxy server with modular architecture
+│   ├── rule-loader.js         # Modular rule loading system
+│   ├── request-processor.js   # Request processing logic
+│   ├── response-processor.js  # Response processing logic
+│   ├── error-handler.js       # Advanced error handling
+│   ├── ui/                    # Interactive Terminal UI (New!)
+│   │   ├── terminal-ui.js     # Main TUI interface
+│   │   ├── log-formatter.js   # Log formatting and display
+│   │   └── rule-manager.js    # Interactive rule management
+│   └── utils/                 # Utility modules
+│       ├── logger.js          # Logging utilities
+│       ├── stats.js           # Statistics tracking
+│       ├── proxy-config.js    # Configuration management
+│       ├── rule-validator.js  # Rule validation
+│       ├── request-utils.js   # Request utilities
+│       ├── url-utils.js       # URL processing utilities
+│       ├── error-utils.js     # Error classification utilities
+│       └── curl-utils.js      # Curl command generation
+├── rules/                     # Rule directory
+│   ├── README.md             # Rule documentation
+│   ├── TEST-CATALOG.md       # Complete testing guide
+│   └── *.js                  # Individual rule files
+├── user-rules/               # User-specific rules
+├── config/                   # Configuration files (Auto-created)
+│   └── rules-state.json      # Rule states (enabled/disabled)
+└── .proxy_certs/            # Generated certificates (auto-created)
 ```
+
+## 🚧 Development Roadmap & Current Work
+
+### ✅ Completed Features
+
+- Modular architecture with separated concerns
+- Advanced error handling and logging
+- Certificate management and SSL interception
+- Rule validation and loading system
+- Statistics tracking and monitoring
+
+### 🔄 Current Development (Interactive UI)
+
+#### Phase 1: Core UI Infrastructure ✅ COMPLETED
+
+- [x] Command line argument parsing for `--ui` flag
+- [x] Basic terminal UI setup with blessed.js
+- [x] Split-panel layout (logs top, rules bottom)
+- [x] Keyboard navigation system
+
+#### Phase 2: Rule Management ✅ COMPLETED
+
+- [x] Interactive rule list with status indicators
+- [x] Rule toggle functionality (enable/disable)
+- [x] Persistent rule state storage (`config/rules-state.json`)
+- [x] Hot-reload rule system integration
+
+#### Phase 3: Enhanced Logging Display ✅ COMPLETED
+
+- [x] Color-coded log formatting
+- [x] Real-time log streaming in UI
+- [x] Log filtering by type/domain/rule (basic implementation)
+- [ ] Advanced log export functionality
+
+#### Phase 4: Advanced Features ✅ MOSTLY COMPLETED
+
+- [x] Rule detail view and editing hints
+- [x] Statistics dashboard in UI
+- [x] Configuration management interface
+- [x] Help system and keyboard shortcuts
+- [ ] Advanced filtering dialog
+- [ ] Performance metrics display
+
+### 🎯 Planned Features
+
+- Web-based UI alternative to terminal UI
+- Rule template system for common patterns
+- Performance monitoring and bottleneck detection
+- Request/response diff visualization
+- SSL pinning bypass utilities
 
 ## 🤝 Contributing
 
-1. Create new rules in the `rules/` directory
+1. Create new rules in the `rules/` or `user-rules/` directory
 2. Follow the `Rule` interface defined in `types.js`
 3. Test with safe domains (httpbin.org, example.com, localhost)
 4. Add comprehensive logging and error handling
 5. Update documentation as needed
+6. For UI contributions, see the development roadmap above
 
 ## 📄 License
 
 This project is for development and testing purposes. Please use responsibly and in compliance with applicable laws and terms of service.
+
+## Inspiration links
+
+- https://www.mock-server.com/
+- https://docs.mitmproxy.org/stable/

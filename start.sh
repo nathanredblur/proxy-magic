@@ -3,21 +3,24 @@
 # Disable TLS certificate verification
 export NODE_TLS_REJECT_UNAUTHORIZED=0
 
-# Script to start Node.js proxy server and Chrome with proxy settings
-# Usage: ./start.sh [URL] [--log=LEVEL | -l LEVEL]
+# Proxy Magic Startup Script
+# Supports both UI and non-UI modes, with optional Chrome launching
+# Usage: ./start.sh [--ui] [--chrome] [--log=LEVEL | -l LEVEL] [--debug]
 # Examples:
-#   ./start.sh https://example.com --log=DEBUG
-#   ./start.sh --log=INFO https://example.com
-#   ./start.sh -l DEBUG
-#   ./start.sh https://example.com
+#   ./start.sh                      # Start without UI (background mode)
+#   ./start.sh --ui                 # Start with interactive UI
+#   ./start.sh --chrome             # Start without UI but launch Chrome
+#   ./start.sh --ui --chrome        # Start with UI and launch Chrome
+#   ./start.sh --log=DEBUG --chrome # Start with debug logging and Chrome
 
 # Default values
-DEFAULT_URL="about:blank"
 DEFAULT_LOG_LEVEL="1"  # INFO level
 
 # Initialize variables
-TARGET_URL=""
 LOG_LEVEL="$DEFAULT_LOG_LEVEL"
+DEBUG_MODE=false
+UI_MODE=false
+CHROME_MODE=false
 
 # Function to convert log level names to numbers
 get_log_level_number() {
@@ -27,6 +30,7 @@ get_log_level_number() {
         "NONE"|"0")     echo "0" ;;
         "INFO"|"1")     echo "1" ;;
         "DEBUG"|"2")    echo "2" ;;
+        "VERBOSE"|"3")  echo "3" ;;
         *)              echo "1" ;;  # Default to INFO
     esac
 }
@@ -37,6 +41,18 @@ clear
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --ui)
+            UI_MODE=true
+            shift
+            ;;
+        --chrome)
+            CHROME_MODE=true
+            shift
+            ;;
+        --debug)
+            DEBUG_MODE=true
+            shift
+            ;;
         --log=*)
             LOG_LEVEL_NAME="${1#*=}"
             LOG_LEVEL=$(get_log_level_number "$LOG_LEVEL_NAME")
@@ -48,88 +64,171 @@ while [[ $# -gt 0 ]]; do
                 LOG_LEVEL=$(get_log_level_number "$LOG_LEVEL_NAME")
                 shift 2
             else
-                echo "Error: --log/-l requires a value (NONE, INFO, DEBUG)"
+                echo "Error: --log/-l requires a value (NONE, INFO, DEBUG, VERBOSE)"
                 exit 1
             fi
+            ;;
+        --help|-h)
+            echo "🎯 Proxy Magic Startup Script"
+            echo "============================="
+            echo ""
+            echo "Usage: ./start.sh [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --ui            Start with interactive terminal UI"
+            echo "  --chrome        Launch Chrome browser with proxy"
+            echo "  --debug         Enable debug mode"
+            echo "  --log=LEVEL     Set log level (NONE, INFO, DEBUG, VERBOSE)"
+            echo "  -l LEVEL        Same as --log=LEVEL"
+            echo "  --help, -h      Show this help message"
+            echo ""
+            echo "Modes:"
+            echo "  Default         Background proxy server (no UI, no Chrome)"
+            echo "  --ui            Interactive terminal with rule management"
+            echo "  --chrome        Background proxy + Chrome launch"
+            echo "  --ui --chrome   Interactive UI + Chrome launch"
+            echo ""
+            echo "Interactive Features (--ui mode):"
+            echo "  🌐 Press 'b' to launch Chrome browser with proxy"
+            echo "  📋 Press 'Tab' to switch between logs and rules panels"
+            echo "  ⚙️  Press 'Space' to enable/disable rules"
+            echo "  📝 Press 'F1' or '?' for complete help"
+            echo "  🚪 Press 'q' or Ctrl+C to quit"
+            echo ""
+            echo "Examples:"
+            echo "  ./start.sh                    # Background mode only"
+            echo "  ./start.sh --ui              # Interactive UI mode"
+            echo "  ./start.sh --chrome          # Background + Chrome"
+            echo "  ./start.sh --ui --chrome     # UI + Chrome"
+            echo "  ./start.sh --debug --log=DEBUG  # Debug mode"
+            exit 0
             ;;
         -*)
             echo "Unknown option: $1"
-            echo "Usage: ./start.sh [URL] [--log=LEVEL | -l LEVEL]"
-            echo "Log levels: NONE, INFO, DEBUG"
+            echo "Use --help for usage information"
             exit 1
             ;;
         *)
-            # If no URL has been set yet, this is the URL
-            if [[ -z "$TARGET_URL" ]]; then
-                TARGET_URL="$1"
-            else
-                echo "Error: Multiple URLs provided. Only one URL is allowed."
-                exit 1
-            fi
-            shift
+            echo "Error: Unexpected argument '$1'"
+            echo "Use --help for usage information"
+            exit 1
             ;;
     esac
 done
 
-# Set default URL if none provided
-if [[ -z "$TARGET_URL" ]]; then
-    TARGET_URL="$DEFAULT_URL"
-fi
-
 # Export log level for the proxy server
 export PROXY_LOG_LEVEL=$LOG_LEVEL
 
-# Command to start the Node.js server
+# Build the Node.js server command with arguments
 NODE_SERVER_CMD="node start-proxy.js"
 
-# Chrome application path
-CHROME_APP_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+# Add UI argument if specified
+if [[ "$UI_MODE" == true ]]; then
+    NODE_SERVER_CMD="$NODE_SERVER_CMD --ui"
+fi
 
-# Start the Node.js server in the background
+# Add Chrome argument if specified
+if [[ "$CHROME_MODE" == true ]]; then
+    NODE_SERVER_CMD="$NODE_SERVER_CMD --chrome"
+fi
+
+# Add log level argument if different from default
+if [[ "$LOG_LEVEL" != "$DEFAULT_LOG_LEVEL" ]]; then
+    NODE_SERVER_CMD="$NODE_SERVER_CMD --log=$LOG_LEVEL"
+fi
+
+# Add debug argument if specified
+if [[ "$DEBUG_MODE" == true ]]; then
+    NODE_SERVER_CMD="$NODE_SERVER_CMD --debug"
+fi
+
+# Display startup information
 LOG_LEVEL_NAME_DISPLAY="INFO"
 case $LOG_LEVEL in
     "0") LOG_LEVEL_NAME_DISPLAY="NONE" ;;
     "1") LOG_LEVEL_NAME_DISPLAY="INFO" ;;
     "2") LOG_LEVEL_NAME_DISPLAY="DEBUG" ;;
+    "3") LOG_LEVEL_NAME_DISPLAY="VERBOSE" ;;
 esac
-echo "Starting Node.js proxy server with log level: $LOG_LEVEL_NAME_DISPLAY ($LOG_LEVEL)"
-$NODE_SERVER_CMD &
-NODE_SERVER_PID=$!
-echo "Node.js server started with PID: $NODE_SERVER_PID"
 
-# Function to clean up (kill Node.js server)
+echo "🎯 Proxy Magic Startup"
+echo "====================="
+echo ""
+echo "Configuration:"
+echo "  🌐 Proxy: http://127.0.0.1:8080"
+echo "  🎮 Interactive UI: $([ "$UI_MODE" == true ] && echo "Enabled" || echo "Disabled")"
+echo "  🌐 Auto Chrome: $([ "$CHROME_MODE" == true ] && echo "Enabled" || echo "Disabled")"
+echo "  📊 Log Level: $LOG_LEVEL_NAME_DISPLAY ($LOG_LEVEL)"
+echo "  🐛 Debug Mode: $([ "$DEBUG_MODE" == true ] && echo "Enabled" || echo "Disabled")"
+echo ""
+
+# Function to clean up
 cleanup() {
-    echo "Cleaning up..."
-    if kill -0 $NODE_SERVER_PID 2>/dev/null; then
-        echo "Stopping Node.js server (PID: $NODE_SERVER_PID)..."
-        kill $NODE_SERVER_PID
-        wait $NODE_SERVER_PID 2>/dev/null # Wait for the process to actually terminate
-        echo "Node.js server stopped."
-    else
-        echo "Node.js server (PID: $NODE_SERVER_PID) already stopped or not found."
+    echo ""
+    echo "🧹 Cleaning up..."
+    if [[ ! -z "$SERVER_PID" ]]; then
+        echo "  🔌 Stopping proxy server..."
+        kill $SERVER_PID 2>/dev/null
+        wait $SERVER_PID 2>/dev/null
     fi
+    echo "✅ Cleanup complete"
 }
 
 # Trap EXIT signal to run cleanup function
 trap cleanup EXIT
 
-# Prepare Chrome arguments using an array
-CHROME_ARGS=(
-    "--proxy-server=http://127.0.0.1:8080"
-    "--no-first-run"
-    "--user-data-dir=./.chrome_proxy_profile"
-    "--disable-session-crashed-bubble"
-)
-
-# Start Chrome
-echo "Starting Chrome with URL: $TARGET_URL"
-echo "Chrome command: \"$CHROME_APP_PATH\" \"${CHROME_ARGS[@]}\" \"$TARGET_URL\""
-
-# Execute Chrome
-"$CHROME_APP_PATH" "${CHROME_ARGS[@]}" "$TARGET_URL"
-
-CHROME_EXIT_CODE=$?
-echo "Chrome exited with code: $CHROME_EXIT_CODE. Script will now exit and cleanup."
-
-# Explicitly exit to ensure the trap runs, though it should run anyway
-exit $CHROME_EXIT_CODE 
+if [[ "$UI_MODE" == true ]]; then
+    # UI mode: Run in foreground with interactive terminal
+    echo "🚀 Starting Proxy Magic with Interactive UI..."
+    if [[ "$CHROME_MODE" == true ]]; then
+        echo "📱 Chrome will be launched automatically"
+    else
+        echo "📱 Press 'b' in the UI to launch Chrome browser"
+    fi
+    echo "📝 Use Ctrl+C or 'q' to quit"
+    echo ""
+    echo "Command: $NODE_SERVER_CMD"
+    echo ""
+    
+    # Start the proxy server with UI (runs in foreground)
+    exec $NODE_SERVER_CMD
+else
+    # Background mode: Run proxy in background, optionally start Chrome
+    echo "🚀 Starting Proxy Magic in background mode..."
+    if [[ "$CHROME_MODE" == true ]]; then
+        echo "📱 Chrome will be launched automatically"
+    else
+        echo "📱 Configure your browser manually with proxy: http://127.0.0.1:8080"
+    fi
+    echo ""
+    echo "Command: $NODE_SERVER_CMD"
+    echo ""
+    
+    # Start the proxy server in background
+    $NODE_SERVER_CMD &
+    SERVER_PID=$!
+    
+    # Wait a moment for the server to start
+    sleep 2
+    
+    # Check if server started successfully
+    if ! kill -0 $SERVER_PID 2>/dev/null; then
+        echo "❌ Failed to start proxy server"
+        exit 1
+    fi
+    
+    echo "✅ Proxy server started (PID: $SERVER_PID)"
+    echo "🌐 Proxy URL: http://127.0.0.1:8080"
+    echo ""
+    
+    if [[ "$CHROME_MODE" == true ]]; then
+        echo "📱 Chrome will be launched by the proxy server"
+        echo "⌨️  Press Ctrl+C to stop the proxy and Chrome"
+    else
+        echo "⌨️  Press Ctrl+C to stop the proxy server"
+    fi
+    echo ""
+    
+    # Wait for interrupt signal
+    wait $SERVER_PID
+fi 
