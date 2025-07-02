@@ -26,6 +26,21 @@ const {
  * @param {Object} startupConfig - Startup configuration (UI, debug, etc.)
  */
 async function startProxyServer(startupConfig = {}) {
+    // Configure environment variables from startup config
+    if (startupConfig.rulesDir) {
+        process.env.RULES_DIR = startupConfig.rulesDir;
+    }
+    
+    // Log configuration for debugging (only in debug mode)
+    if (process.env.DEBUG_RULES === 'true') {
+        console.log(`🔍 [ProxyServer] Configuration:`);
+        console.log(`🔍   RULES_DIR (env): ${process.env.RULES_DIR}`);
+        console.log(`🔍   rulesDir (startup): ${startupConfig.rulesDir}`);
+        console.log(`🔍   chromeUrl (startup): ${startupConfig.chromeUrl}`);
+        console.log(`🔍   UI mode: ${startupConfig.ui}`);
+        console.log(`🔍   Chrome mode: ${startupConfig.chrome}`);
+    }
+    
     // Initialize UI first if requested to avoid log conflicts
     let terminalUI = null;
     if (startupConfig.ui) {
@@ -54,7 +69,13 @@ async function startProxyServer(startupConfig = {}) {
         
         try {
             const { TerminalUI } = require('./ui/terminal-ui');
-            terminalUI = new TerminalUI();
+            if (process.env.DEBUG_RULES === 'true') {
+                console.log(`🔍 [ProxyServer] Creating TerminalUI with rulesDir: ${startupConfig.rulesDir}`);
+            }
+            terminalUI = new TerminalUI({
+                rulesDir: startupConfig.rulesDir,
+                chromeUrl: startupConfig.chromeUrl
+            });
             await terminalUI.initialize();
             
             // Restore stderr now that UI is initialized
@@ -136,7 +157,10 @@ async function startProxyServer(startupConfig = {}) {
     if (terminalUI) {
         // Use UI rule manager for enabled rules only
         activeRules = terminalUI.getEnabledRules();
-        terminalUI.logSystem(`📋 Loaded ${activeRules.length} enabled rules`);
+        if (process.env.DEBUG_RULES === 'true') {
+            console.log(`🔍 [ProxyServer] TerminalUI rules loaded: ${activeRules.length} enabled rules`);
+        }
+        terminalUI.logSystem(`📋 Loaded ${activeRules.length} enabled rules from directory: ${terminalUI.ruleManager.rulesDir}`);
         
         // Initialize proxy
         proxy = initializeProxy();
@@ -154,6 +178,9 @@ async function startProxyServer(startupConfig = {}) {
         // Load rules using the legacy loader for non-UI mode
         const rules = require('./rule-loader');
         activeRules = rules;
+        if (process.env.DEBUG_RULES === 'true') {
+            console.log(`🔍 [ProxyServer] Legacy loader rules: ${activeRules.length} rules from RULES_DIR=${process.env.RULES_DIR}`);
+        }
         // Validate rules before starting the proxy (non-UI mode)
         validateRules(rules);
         
@@ -282,23 +309,34 @@ function startProxy(proxy, config, paths, terminalUI = null, startupConfig = {})
         if (terminalUI) {
             terminalUI.logSystem(startupMessage);
             terminalUI.logSystem(certMessage);
+            terminalUI.logSystem(`📁 Loading rules from directory: ${terminalUI.ruleManager.rulesDir}`);
             terminalUI.logSystem('🚀 Proxy server started successfully');
+        } else {
+            // For non-UI mode, also log the rules directory
+            const rulesDir = process.env.RULES_DIR || 'rules';
+            const resolvedRulesDir = require('path').isAbsolute(rulesDir) ? rulesDir : require('path').resolve(process.cwd(), rulesDir);
+            logger.log(1, `📁 Loading rules from directory: ${resolvedRulesDir}`);
         }
         
         // Launch Chrome automatically if requested
-        if (startupConfig.chrome || (terminalUI && startupConfig.chrome)) {
+        if (startupConfig.chrome) {
             try {
                 const { chromeLauncher } = require('./utils/chrome-launcher');
                 
                 // Set proxy configuration for Chrome launcher
                 chromeLauncher.setProxyConfig(config.host, config.port);
                 
+                const chromeUrl = startupConfig.chromeUrl || 'http://httpbin.org/';
+                
                 logger.log(1, '🚀 Launching Chrome browser automatically...');
+                logger.log(1, `📍 Starting URL: ${chromeUrl}`);
+                
                 if (terminalUI) {
                     terminalUI.logSystem('🚀 Launching Chrome browser automatically...');
+                    terminalUI.logSystem(`📍 Starting URL: ${chromeUrl}`);
                 }
                 
-                const result = await chromeLauncher.launchWithTestUrl('httpbin');
+                const result = await chromeLauncher.launchChrome(chromeUrl);
                 
                 if (result.success) {
                     logger.log(1, `✅ Chrome launched: ${result.message}`);

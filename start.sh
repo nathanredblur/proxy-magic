@@ -4,23 +4,44 @@
 export NODE_TLS_REJECT_UNAUTHORIZED=0
 
 # Proxy Magic Startup Script
-# Supports both UI and non-UI modes, with optional Chrome launching
-# Usage: ./start.sh [--ui] [--chrome] [--log=LEVEL | -l LEVEL] [--debug]
-# Examples:
-#   ./start.sh                      # Start without UI (background mode)
-#   ./start.sh --ui                 # Start with interactive UI
-#   ./start.sh --chrome             # Start without UI but launch Chrome
-#   ./start.sh --ui --chrome        # Start with UI and launch Chrome
-#   ./start.sh --log=DEBUG --chrome # Start with debug logging and Chrome
+# Supports multiple configuration modes with .env file support
+# Usage: ./start.sh [OPTIONS]
+# All options can be configured via .env file or command line
 
-# Default values
+# Load .env file if it exists
+if [[ -f .env ]]; then
+    source .env
+fi
+
+# Default values (can be overridden by .env)
 DEFAULT_LOG_LEVEL="1"  # INFO level
 
-# Initialize variables
-LOG_LEVEL="$DEFAULT_LOG_LEVEL"
-DEBUG_MODE=false
-UI_MODE=false
-CHROME_MODE=false
+# Initialize variables with .env defaults
+LOG_LEVEL="${LOG_LEVEL:-$DEFAULT_LOG_LEVEL}"
+DEBUG_MODE="${DEFAULT_DEBUG:-false}"
+UI_MODE="${DEFAULT_UI:-false}"
+CHROME_MODE="${DEFAULT_CHROME:-false}"
+RULES_DIR="${RULES_DIR:-}"
+CHROME_URL="${CHROME_START_URL:-}"
+
+# Convert string boolean values to bash boolean
+if [[ "$DEBUG_MODE" == "true" ]]; then
+    DEBUG_MODE=true
+else
+    DEBUG_MODE=false
+fi
+
+if [[ "$UI_MODE" == "true" ]]; then
+    UI_MODE=true
+else
+    UI_MODE=false
+fi
+
+if [[ "$CHROME_MODE" == "true" ]]; then
+    CHROME_MODE=true
+else
+    CHROME_MODE=false
+fi
 
 # Function to convert log level names to numbers
 get_log_level_number() {
@@ -45,13 +66,51 @@ while [[ $# -gt 0 ]]; do
             UI_MODE=true
             shift
             ;;
+        --no-ui)
+            UI_MODE=false
+            shift
+            ;;
         --chrome)
             CHROME_MODE=true
+            shift
+            ;;
+        --no-chrome)
+            CHROME_MODE=false
             shift
             ;;
         --debug)
             DEBUG_MODE=true
             shift
+            ;;
+        --no-debug)
+            DEBUG_MODE=false
+            shift
+            ;;
+        --rules=*)
+            RULES_DIR="${1#*=}"
+            shift
+            ;;
+        --rules)
+            if [[ -n $2 && $2 != -* ]]; then
+                RULES_DIR="$2"
+                shift 2
+            else
+                echo "Error: --rules requires a directory path"
+                exit 1
+            fi
+            ;;
+        --chrome-url=*)
+            CHROME_URL="${1#*=}"
+            shift
+            ;;
+        --chrome-url)
+            if [[ -n $2 && $2 != -* ]]; then
+                CHROME_URL="$2"
+                shift 2
+            else
+                echo "Error: --chrome-url requires a URL"
+                exit 1
+            fi
             ;;
         --log=*)
             LOG_LEVEL_NAME="${1#*=}"
@@ -75,18 +134,31 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: ./start.sh [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --ui            Start with interactive terminal UI"
-            echo "  --chrome        Launch Chrome browser with proxy"
-            echo "  --debug         Enable debug mode"
-            echo "  --log=LEVEL     Set log level (NONE, INFO, DEBUG, VERBOSE)"
-            echo "  -l LEVEL        Same as --log=LEVEL"
-            echo "  --help, -h      Show this help message"
+            echo "  --ui                      Start with interactive terminal UI"
+            echo "  --no-ui                   Disable terminal UI"
+            echo "  --chrome                  Launch Chrome browser with proxy"
+            echo "  --no-chrome               Don't launch Chrome"
+            echo "  --debug                   Enable debug mode"
+            echo "  --no-debug                Disable debug mode"
+            echo "  --log=LEVEL               Set log level (NONE, INFO, DEBUG, VERBOSE)"
+            echo "  -l LEVEL                  Same as --log=LEVEL"
+            echo "  --rules=DIR               Set rules directory"
+            echo "  --chrome-url=URL          Set Chrome startup URL"
+            echo "  --help, -h                Show this help message"
+            echo ""
+            echo "Current .env Configuration:"
+            echo "  DEFAULT_UI=${DEFAULT_UI:-false}"
+            echo "  DEFAULT_CHROME=${DEFAULT_CHROME:-false}"
+            echo "  DEFAULT_DEBUG=${DEFAULT_DEBUG:-false}"
+            echo "  RULES_DIR=${RULES_DIR:-rules}"
+            echo "  CHROME_START_URL=${CHROME_START_URL:-https://example.org/}"
+            echo "  LOG_LEVEL=${LOG_LEVEL:-1}"
             echo ""
             echo "Modes:"
-            echo "  Default         Background proxy server (no UI, no Chrome)"
-            echo "  --ui            Interactive terminal with rule management"
-            echo "  --chrome        Background proxy + Chrome launch"
-            echo "  --ui --chrome   Interactive UI + Chrome launch"
+            echo "  Default                   Background proxy server"
+            echo "  --ui                      Interactive terminal with rule management"
+            echo "  --chrome                  Background proxy + Chrome launch"
+            echo "  --ui --chrome             Interactive UI + Chrome launch"
             echo ""
             echo "Interactive Features (--ui mode):"
             echo "  🌐 Press 'b' to launch Chrome browser with proxy"
@@ -96,11 +168,12 @@ while [[ $# -gt 0 ]]; do
             echo "  🚪 Press 'q' or Ctrl+C to quit"
             echo ""
             echo "Examples:"
-            echo "  ./start.sh                    # Background mode only"
-            echo "  ./start.sh --ui              # Interactive UI mode"
-            echo "  ./start.sh --chrome          # Background + Chrome"
-            echo "  ./start.sh --ui --chrome     # UI + Chrome"
-            echo "  ./start.sh --debug --log=DEBUG  # Debug mode"
+            echo "  ./start.sh                                      # Use .env defaults"
+            echo "  ./start.sh --ui --chrome                       # UI + Chrome"
+            echo "  ./start.sh --rules=user-rules --ui             # Custom rules dir"
+            echo "  ./start.sh --chrome-url=https://google.com     # Custom Chrome URL"
+            echo "  ./start.sh --no-ui --no-chrome                 # Force headless mode"
+            echo "  ./start.sh --debug --log=DEBUG                 # Full debug mode"
             exit 0
             ;;
         -*)
@@ -142,6 +215,16 @@ if [[ "$DEBUG_MODE" == true ]]; then
     NODE_SERVER_CMD="$NODE_SERVER_CMD --debug"
 fi
 
+# Add rules directory if specified
+if [[ -n "$RULES_DIR" ]]; then
+    NODE_SERVER_CMD="$NODE_SERVER_CMD --rules=$RULES_DIR"
+fi
+
+# Add Chrome URL if specified
+if [[ -n "$CHROME_URL" ]]; then
+    NODE_SERVER_CMD="$NODE_SERVER_CMD --chrome-url=$CHROME_URL"
+fi
+
 # Display startup information
 LOG_LEVEL_NAME_DISPLAY="INFO"
 case $LOG_LEVEL in
@@ -160,6 +243,8 @@ echo "  🎮 Interactive UI: $([ "$UI_MODE" == true ] && echo "Enabled" || echo 
 echo "  🌐 Auto Chrome: $([ "$CHROME_MODE" == true ] && echo "Enabled" || echo "Disabled")"
 echo "  📊 Log Level: $LOG_LEVEL_NAME_DISPLAY ($LOG_LEVEL)"
 echo "  🐛 Debug Mode: $([ "$DEBUG_MODE" == true ] && echo "Enabled" || echo "Disabled")"
+echo "  📁 Rules Directory: ${RULES_DIR:-default}"
+echo "  🌐 Chrome Start URL: ${CHROME_URL:-default}"
 echo ""
 
 # Function to clean up

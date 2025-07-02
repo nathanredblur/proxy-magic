@@ -14,7 +14,7 @@ const { chromeLauncher } = require('../utils/chrome-launcher');
  * Terminal UI class
  */
 class TerminalUI {
-    constructor() {
+    constructor(options = {}) {
         this.screen = null;
         this.logBox = null;
         this.ruleBox = null;
@@ -23,7 +23,7 @@ class TerminalUI {
         this.detailBox = null;
         
         this.logFormatter = new LogFormatter();
-        this.ruleManager = new RuleManager();
+        this.ruleManager = new RuleManager(options.rulesDir);
         
         this.currentPanel = 'logs'; // 'logs' or 'rules'
         this.showHelp = false;
@@ -31,6 +31,9 @@ class TerminalUI {
         
         this.refreshInterval = null;
         this.initialized = false;
+        
+        // Store configuration
+        this.chromeUrl = options.chromeUrl || 'http://httpbin.org/';
     }
 
     /**
@@ -547,7 +550,9 @@ class TerminalUI {
     async launchChrome() {
         try {
             this.logFormatter.logSystem('🚀 Launching Chrome browser as independent process...');
-            const result = await chromeLauncher.launchWithTestUrl('httpbin');
+            this.logFormatter.logSystem(`📍 Starting URL: ${this.chromeUrl}`);
+            
+            const result = await chromeLauncher.launchChrome(this.chromeUrl);
             
             if (result.success) {
                 this.logFormatter.logSystem(`✅ ${result.message}`);
