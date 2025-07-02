@@ -399,9 +399,8 @@ class TerminalUI {
      * Get status bar text
      */
     getStatusText() {
-        const chromeStatus = chromeLauncher.isChromeRunning() ? 
-            chalk.green('🌐 Chrome: Running') : 
-            chalk.red('🌐 Chrome: Stopped');
+        // Chrome runs independently, so we show it as independent
+        const chromeStatus = chalk.blue('🌐 Chrome: Independent');
         
         const rulesCount = this.ruleManager.getRuleCount();
         const enabledCount = this.ruleManager.getEnabledCount();
@@ -547,12 +546,13 @@ class TerminalUI {
      */
     async launchChrome() {
         try {
-            this.logFormatter.logSystem('🚀 Launching Chrome browser...');
+            this.logFormatter.logSystem('🚀 Launching Chrome browser as independent process...');
             const result = await chromeLauncher.launchWithTestUrl('httpbin');
             
             if (result.success) {
                 this.logFormatter.logSystem(`✅ ${result.message}`);
-                this.logFormatter.logSystem('🌐 Chrome configured with proxy: http://127.0.0.1:8080');
+                this.logFormatter.logSystem('🌐 Chrome runs independently with proxy: http://127.0.0.1:8080');
+                this.logFormatter.logSystem('ℹ️ Chrome will not affect proxy stability');
             } else {
                 this.logFormatter.logSystem(`❌ ${result.message}`);
             }

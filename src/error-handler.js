@@ -37,8 +37,14 @@ function handleProxyError(ctx, err, errorKind) {
     logDetailedError(ctx, err, errorKind);
     
     // Handle specific error types and provide better responses to the client
-    if (ctx && ctx.proxyToClientResponse && !ctx.proxyToClientResponse.headersSent) {
-        sendErrorResponse(ctx, err);
+    // Only send custom error response if headers haven't been sent yet
+    if (ctx && ctx.proxyToClientResponse && !ctx.proxyToClientResponse.headersSent && !ctx.proxyToClientResponse.finished) {
+        try {
+            sendErrorResponse(ctx, err);
+        } catch (responseError) {
+            // If we can't send error response, just log it
+            logger.log(2, `Could not send error response: ${responseError.message}`);
+        }
     }
 }
 
@@ -98,13 +104,24 @@ function sendErrorResponse(ctx, err) {
  */
 function sendHtmlErrorResponse(ctx, errorInfo) {
     const { statusCode, errorTitle, errorMessage, errorDetails } = errorInfo;
-    const errorPage = createErrorPage(statusCode, errorTitle, errorMessage, errorDetails, ctx);
-    const headers = createErrorHeaders(statusCode, true);
     
-    ctx.proxyToClientResponse.writeHead(statusCode, headers);
-    ctx.proxyToClientResponse.end(errorPage);
+    // Double-check response state before writing
+    if (ctx.proxyToClientResponse.headersSent || ctx.proxyToClientResponse.finished) {
+        logger.log(2, `Cannot send HTML error response - headers already sent or response finished`);
+        return;
+    }
     
-    logger.log(1, `Sent custom HTML error page for error (${statusCode})`);
+    try {
+        const errorPage = createErrorPage(statusCode, errorTitle, errorMessage, errorDetails, ctx);
+        const headers = createErrorHeaders(statusCode, true);
+        
+        ctx.proxyToClientResponse.writeHead(statusCode, headers);
+        ctx.proxyToClientResponse.end(errorPage);
+        
+        logger.log(1, `Sent custom HTML error page for error (${statusCode})`);
+    } catch (error) {
+        logger.log(2, `Failed to send HTML error response: ${error.message}`);
+    }
 }
 
 /**
@@ -114,13 +131,24 @@ function sendHtmlErrorResponse(ctx, errorInfo) {
  */
 function sendTextErrorResponse(ctx, errorInfo) {
     const { statusCode, errorTitle, errorMessage } = errorInfo;
-    const simpleError = `${statusCode} ${errorTitle}: ${errorMessage}`;
-    const headers = createErrorHeaders(statusCode, false);
     
-    ctx.proxyToClientResponse.writeHead(statusCode, headers);
-    ctx.proxyToClientResponse.end(simpleError);
+    // Double-check response state before writing
+    if (ctx.proxyToClientResponse.headersSent || ctx.proxyToClientResponse.finished) {
+        logger.log(2, `Cannot send text error response - headers already sent or response finished`);
+        return;
+    }
     
-    logger.log(1, `Sent simple text error (${statusCode}) - non-HTML request`);
+    try {
+        const simpleError = `${statusCode} ${errorTitle}: ${errorMessage}`;
+        const headers = createErrorHeaders(statusCode, false);
+        
+        ctx.proxyToClientResponse.writeHead(statusCode, headers);
+        ctx.proxyToClientResponse.end(simpleError);
+        
+        logger.log(1, `Sent simple text error (${statusCode}) - non-HTML request`);
+    } catch (error) {
+        logger.log(2, `Failed to send text error response: ${error.message}`);
+    }
 }
 
 /**
@@ -128,43 +156,21 @@ function sendTextErrorResponse(ctx, errorInfo) {
  * @param {Object} ctx - Proxy context
  */
 function sendFallbackErrorResponse(ctx) {
-    if (!ctx.proxyToClientResponse.headersSent) {
-        ctx.proxyToClientResponse.writeHead(500, {'Content-Type': 'text/plain'});
-        ctx.proxyToClientResponse.end('Proxy Error: Unable to process request');
-    }
-}
-
-/**
- * Sets up stderr filtering to prevent Chrome noise from causing crashes
- */
-function setupStderrFiltering() {
-    const originalWrite = process.stderr.write;
-    
-    process.stderr.write = function(string, encoding, fd) {
-        // Filter out Chrome noise from stderr
-        if (typeof string === 'string' && (
-            string.includes('Trying to load the allocator multiple times') ||
-            string.includes('TensorFlow Lite XNNPACK delegate') ||
-            string.includes('Attempting to use a delegate') ||
-            string.includes('VoiceTranscriptionCapability') ||
-            string.includes('absl::InitializeLog') ||
-            string.includes('WARNING: All log messages before')
-        )) {
-            // Silently suppress Chrome noise
-            return true;
+    if (!ctx.proxyToClientResponse.headersSent && !ctx.proxyToClientResponse.finished) {
+        try {
+            ctx.proxyToClientResponse.writeHead(500, {'Content-Type': 'text/plain'});
+            ctx.proxyToClientResponse.end('Proxy Error: Unable to process request');
+        } catch (error) {
+            logger.log(2, `Could not send fallback error response: ${error.message}`);
         }
-        
-        // Allow other stderr messages through
-        return originalWrite.call(process.stderr, string, encoding, fd);
-    };
+    }
 }
 
 /**
  * Sets up global error handlers for the process
  */
 function setupGlobalErrorHandlers() {
-    // First setup stderr filtering
-    setupStderrFiltering();
+    // No need for stderr filtering since Chrome runs as detached process
     process.on('uncaughtException', (err) => {
         logger.error('UNCAUGHT EXCEPTION:', err);
         
@@ -179,19 +185,16 @@ function setupGlobalErrorHandlers() {
             return;
         }
         
-        // For Chrome/spawn related errors, log but don't exit
+        // Don't exit for HTTP header/response errors - these are common in proxies
         if (err.message && (
-            err.message.includes('spawn') ||
-            err.message.includes('Chrome') ||
-            err.message.includes('ENOENT') ||
-            err.message.includes('allocator') ||
-            err.message.includes('TensorFlow') ||
-            err.message.includes('delegate') ||
-            err.message.includes('XNNPACK') ||
-            err.message.includes('VoiceTranscription') ||
-            err.message.includes('absl::InitializeLog')
+            err.message.includes('Cannot write headers after they are sent') ||
+            err.message.includes('ERR_HTTP_HEADERS_SENT') ||
+            err.message.includes('Cannot set headers after they are sent') ||
+            err.message.includes('Response has already been sent') ||
+            err.message.includes('socket hang up') ||
+            err.message.includes('ECONNRESET')
         )) {
-            logger.error('Ignoring Chrome/spawn related error');
+            logger.error('Ignoring HTTP response error (common in proxy operations)');
             return;
         }
         
@@ -203,19 +206,16 @@ function setupGlobalErrorHandlers() {
     process.on('unhandledRejection', (reason, promise) => {
         logger.error('UNHANDLED REJECTION:', reason);
         
-        // Don't exit for Chrome-related promise rejections
+        // Don't exit for HTTP response related promise rejections
         if (reason && reason.message && (
-            reason.message.includes('Chrome') ||
-            reason.message.includes('spawn') ||
-            reason.message.includes('ENOENT') ||
-            reason.message.includes('allocator') ||
-            reason.message.includes('TensorFlow') ||
-            reason.message.includes('delegate') ||
-            reason.message.includes('XNNPACK') ||
-            reason.message.includes('VoiceTranscription') ||
-            reason.message.includes('absl::InitializeLog')
+            reason.message.includes('Cannot write headers after they are sent') ||
+            reason.message.includes('ERR_HTTP_HEADERS_SENT') ||
+            reason.message.includes('Cannot set headers after they are sent') ||
+            reason.message.includes('Response has already been sent') ||
+            reason.message.includes('socket hang up') ||
+            reason.message.includes('ECONNRESET')
         )) {
-            logger.error('Ignoring Chrome-related promise rejection');
+            logger.error('Ignoring HTTP response promise rejection (common in proxy operations)');
             return;
         }
         
@@ -229,6 +229,5 @@ module.exports = {
     handleProxyError,
     logDetailedError,
     sendErrorResponse,
-    setupGlobalErrorHandlers,
-    setupStderrFiltering
+    setupGlobalErrorHandlers
 }; 
