@@ -5,7 +5,6 @@
 
 const Proxy = require('http-mitm-proxy').Proxy;
 const path = require('path');
-const rules = require('./rule-loader'); // Import the rules loader
 
 // Import our refactored modules
 const { logger, initializeLogger, setUIInstance, suppressConsoleOutput, removeUIInstance } = require('./utils/logger');
@@ -118,22 +117,52 @@ async function startProxyServer(startupConfig = {}) {
     // Log startup information
     logStartupInfo(config, paths);
     
-    // Load rules with state management
-    let activeRules = rules;
+        // Load rules with state management
+    let activeRules = [];
+    let proxy = null;
+    
+    // Create a rule provider function that always returns current rules
+    const getRuleProvider = () => {
+        if (terminalUI) {
+            return () => terminalUI.getEnabledRules();
+        } else {
+            const staticRules = require('./rule-loader');
+            return () => staticRules;
+        }
+    };
+    
+    const ruleProvider = getRuleProvider();
+    
     if (terminalUI) {
         // Use UI rule manager for enabled rules only
         activeRules = terminalUI.getEnabledRules();
         terminalUI.logSystem(`📋 Loaded ${activeRules.length} enabled rules`);
+        
+        // Initialize proxy
+        proxy = initializeProxy();
+        
+        // Setup dynamic rule reloading callback
+        terminalUI.setRulesChangedCallback(async (newRules) => {
+            activeRules = newRules;
+            terminalUI.logSystem(`🔄 Rules updated - ${activeRules.length} rules now active`);
+            terminalUI.logSystem(`📊 Active rules: ${activeRules.map(r => r.filename || 'unnamed').join(', ')}`);
+        });
+        
+        // Setup proxy event handlers with dynamic rule provider
+        setupProxyHandlers(proxy, ruleProvider, terminalUI);
     } else {
+        // Load rules using the legacy loader for non-UI mode
+        const rules = require('./rule-loader');
+        activeRules = rules;
         // Validate rules before starting the proxy (non-UI mode)
         validateRules(rules);
+        
+        // Initialize proxy
+        proxy = initializeProxy();
+        
+        // Setup proxy event handlers
+        setupProxyHandlers(proxy, ruleProvider, terminalUI);
     }
-    
-    // Initialize proxy
-    const proxy = initializeProxy();
-    
-    // Setup proxy event handlers with UI integration
-    setupProxyHandlers(proxy, activeRules, terminalUI);
     
     // Start the proxy server
     startProxy(proxy, config, paths, terminalUI, startupConfig);
@@ -153,10 +182,17 @@ function initializeProxy() {
 /**
  * Sets up all proxy event handlers
  * @param {Proxy} proxy - The proxy object
- * @param {Array} activeRules - Active rules to use
+ * @param {Function} ruleProvider - Function that returns current active rules
  * @param {TerminalUI} terminalUI - Terminal UI instance (optional)
  */
-function setupProxyHandlers(proxy, activeRules, terminalUI = null) {
+function setupProxyHandlers(proxy, ruleProvider, terminalUI = null) {
+    // Clear existing handlers to avoid duplicates during rule reloading
+    if (proxy._eventHandlers) {
+        proxy.removeAllListeners();
+        delete proxy._eventHandlers;
+    }
+    proxy._eventHandlers = true;
+    
     // Error handler
     proxy.onError((ctx, err, errorKind) => {
         handleProxyError(ctx, err, errorKind);
@@ -166,16 +202,26 @@ function setupProxyHandlers(proxy, activeRules, terminalUI = null) {
         }
     });
     
-    // Request handlers
+    // Request handlers - use dynamic rule provider
     proxy.onRequest((ctx, callback) => {
-        processRequest(ctx, activeRules, callback);
+        const activeRules = ruleProvider(); // Get current rules dynamically
         
-        // Log request in UI
+        // Debug logging to verify rules are being loaded correctly
         if (terminalUI && ctx.clientToProxyRequest) {
             const method = ctx.clientToProxyRequest.method;
             const url = ctx.clientToProxyRequest.url;
+            
+            // Only log rule count for the first few requests to avoid spam
+            if (!proxy._debugLogCount) proxy._debugLogCount = 0;
+            if (proxy._debugLogCount < 3) {
+                terminalUI.logSystem(`🔍 Processing ${method} ${url} with ${activeRules.length} active rules`);
+                proxy._debugLogCount++;
+            }
+            
             terminalUI.logRequest(method, url);
         }
+        
+        processRequest(ctx, activeRules, callback);
     });
     
     proxy.onRequestData((ctx, chunk, callback) => {

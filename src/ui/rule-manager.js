@@ -41,8 +41,11 @@ class RuleManager {
     async loadRules() {
         this.rules = [];
         
-        // Load rules from main rules directory
-        await this.loadRulesFromDirectory(this.rulesDir, 'rules');
+        // Avoid loading the same directory twice when RULES_DIR=user-rules
+        if (this.rulesDir !== this.userRulesDir) {
+            // Load rules from main rules directory
+            await this.loadRulesFromDirectory(this.rulesDir, 'rules');
+        }
         
         // Load rules from user rules directory
         await this.loadRulesFromDirectory(this.userRulesDir, 'user-rules');
@@ -141,20 +144,14 @@ class RuleManager {
     getFormattedRules() {
         const rulesWithStates = this.getRulesWithStates();
         
-        return rulesWithStates.map((rule, index) => {
-            const isSelected = index === this.selectedIndex;
-            const status = rule.enabled ? chalk.green('✅') : chalk.red('❌');
+        return rulesWithStates.map((rule) => {
+            const status = rule.enabled ? '✅' : '❌';
             const name = rule.name;
-            const source = chalk.gray(`[${rule.source}]`);
-            const usage = rule.usageCount > 0 ? chalk.cyan(`(${rule.usageCount} uses)`) : '';
+            const source = `[${rule.source}]`;
+            const usage = rule.usageCount > 0 ? `(${rule.usageCount} uses)` : '';
             
-            let line = `${status} ${name} ${source} ${usage}`;
-            
-            if (isSelected) {
-                line = chalk.bgBlue.white(` ${line} `);
-            }
-            
-            return line;
+            // Return plain text without chalk colors - blessed handles styling
+            return `${status} ${name} ${source} ${usage}`.trim();
         });
     }
 
