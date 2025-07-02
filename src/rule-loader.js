@@ -18,9 +18,27 @@ require('dotenv').config();
  */
 function loadAllRules() {
     // Get rules directory from environment variable or use default
-    const rulesDir = path.resolve(process.env.RULES_DIR || 'rules');
+    const rawRulesDir = process.env.RULES_DIR || 'rules';
+    
+    // Handle both relative and absolute paths properly
+    let rulesDir;
+    if (path.isAbsolute(rawRulesDir)) {
+        rulesDir = rawRulesDir;
+    } else {
+        // For relative paths, resolve from current working directory
+        rulesDir = path.resolve(process.cwd(), rawRulesDir);
+    }
+    
     const rules = [];
     const isDebug = process.env.DEBUG_RULES === 'true';
+    
+    // Log for debugging (only in debug mode)
+    if (isDebug) {
+        console.log(`🔍 [RuleLoader] Raw RULES_DIR: "${rawRulesDir}"`);
+        console.log(`🔍 [RuleLoader] Resolved rules directory: "${rulesDir}"`);
+        console.log(`🔍 [RuleLoader] Working directory: "${process.cwd()}"`);
+        console.log(`🔍 [RuleLoader] Debug mode: ${isDebug}`);
+    }
     
     if (isDebug) {
         console.log(`🔍 Loading rules from: ${rulesDir}`);
@@ -64,6 +82,14 @@ function loadAllRules() {
             if (isDebug) {
                 console.error(error.stack);
             }
+        }
+    }
+    
+    // Log rule count for debugging (only in debug mode)
+    if (isDebug) {
+        console.log(`🔍 [RuleLoader] Total rules loaded: ${rules.length}`);
+        if (rules.length > 0) {
+            console.log(`🔍 [RuleLoader] Rule names: ${rules.map(r => r.name || 'unnamed').join(', ')}`);
         }
     }
     

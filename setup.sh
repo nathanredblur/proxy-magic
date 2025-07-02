@@ -80,12 +80,13 @@ start_proxy_server() {
     log "Starting proxy server to generate certificates..."
     
     # Set environment variables and start the proxy server in background
+    # Force no-UI mode for certificate generation
     export NODE_TLS_REJECT_UNAUTHORIZED=0
-    nohup node start-proxy.js > /tmp/proxy-setup.log 2>&1 &
+    nohup node start-proxy.js --no-ui --no-chrome > /tmp/proxy-setup.log 2>&1 &
     local pid=$!
     echo $pid > "$PID_FILE"
     
-    log "Proxy server started with PID: $pid"
+    log "Proxy server started with PID: $pid (headless mode for certificate generation)"
     
     # Wait for server to start
     local attempts=0

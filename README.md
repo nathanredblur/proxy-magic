@@ -63,33 +63,158 @@ This project sets up a local Man-in-the-Middle (MITM) proxy server using Node.js
     # or yarn install
     ```
 
-2.  **Choose your mode:**
+2.  **Optional: Configure Defaults (Recommended)**
+
+    Create a `.env` file to set your preferred defaults:
 
     ```bash
-    # Background mode (no UI, manual browser setup)
+    # Example .env configuration
+    cat > .env << 'EOF'
+    DEFAULT_UI=true
+    DEFAULT_CHROME=true
+    RULES_DIR=user-rules
+    CHROME_START_URL=https://example.org/
+    EOF
+    ```
+
+3.  **Choose your mode:**
+
+    ```bash
+    # Use .env defaults (recommended)
     ./start.sh
 
-    # Interactive UI mode
-    ./start.sh --ui
+    # Specific modes (override .env)
+    ./start.sh --ui --chrome             # Interactive UI + Chrome
+    ./start.sh --no-ui --chrome          # Background + Chrome only
+    ./start.sh --rules=user-rules --ui   # Custom rules directory
 
-    # Background mode + auto Chrome launch
-    ./start.sh --chrome
+    # Advanced options
+    ./start.sh --chrome-url=https://google.com --ui --debug
+    ./start.sh --log=DEBUG --rules=test-rules
 
-    # Interactive UI + auto Chrome launch
-    ./start.sh --ui --chrome
-
-    # With debug logging
-    ./start.sh --ui --chrome --debug --log=DEBUG
-
-    # Show all options
+    # Show all options and current .env values
     ./start.sh --help
     ```
 
-3.  **Available Modes:**
+4.  **Available Modes:**
     - **Background Mode**: Proxy runs in background, configure browser manually
     - **UI Mode**: Interactive terminal with real-time logs and rule management
     - **Chrome Mode**: Automatically launches Chrome with proxy configuration
     - **Combined**: UI + Chrome for full interactive experience
+
+## ⚙️ Configuration
+
+Proxy Magic supports comprehensive configuration through environment variables and command-line arguments. All settings can be configured in a `.env` file for persistent configuration.
+
+### Environment Configuration (.env)
+
+Create a `.env` file in the project root to set default values:
+
+```env
+# Proxy Magic Configuration
+
+# Rules Directory - Where to load rules from
+# Options: 'rules' (system rules), 'user-rules' (user rules), or custom path
+RULES_DIR=user-rules
+
+# Default startup modes
+DEFAULT_UI=false
+DEFAULT_CHROME=false
+DEFAULT_DEBUG=false
+
+# Chrome Configuration
+CHROME_START_URL=https://example.org/
+# Alternative URLs you can use:
+# CHROME_START_URL=https://example.com
+# CHROME_START_URL=https://google.com
+# CHROME_START_URL=about:blank
+# CHROME_START_URL=http://localhost:3000
+
+# Proxy Server Configuration
+PROXY_HOST=127.0.0.1
+PROXY_PORT=8080
+
+# Logging Configuration
+LOG_LEVEL=1
+STATS_INTERVAL=60000
+
+# SSL Configuration
+CA_CERT_DIR=certs
+```
+
+### Command Line Options
+
+All configuration can be overridden via command-line arguments:
+
+```bash
+# Basic options
+./start.sh --ui                      # Enable interactive UI
+./start.sh --no-ui                   # Disable UI (override .env)
+./start.sh --chrome                  # Launch Chrome automatically
+./start.sh --no-chrome               # Don't launch Chrome (override .env)
+./start.sh --debug                   # Enable debug mode
+./start.sh --no-debug                # Disable debug (override .env)
+
+# Advanced configuration
+./start.sh --rules=user-rules        # Set rules directory
+./start.sh --chrome-url=https://google.com  # Custom Chrome start URL
+./start.sh --log=DEBUG               # Set log level (NONE, INFO, DEBUG, VERBOSE)
+
+# Show current configuration
+./start.sh --help                    # Displays current .env values
+```
+
+### Configuration Examples
+
+**Example 1: Development Setup**
+
+```env
+# .env - Development configuration
+DEFAULT_UI=true
+DEFAULT_CHROME=true
+DEFAULT_DEBUG=true
+RULES_DIR=user-rules
+CHROME_START_URL=http://localhost:3000
+LOG_LEVEL=2
+```
+
+**Example 2: Production Testing**
+
+```env
+# .env - Production testing
+DEFAULT_UI=false
+DEFAULT_CHROME=true
+DEFAULT_DEBUG=false
+RULES_DIR=rules
+CHROME_START_URL=https://example.org/
+LOG_LEVEL=1
+```
+
+**Example 3: Manual Configuration**
+
+```bash
+# Override all .env settings for specific test
+./start.sh --rules=test-rules --chrome-url=https://staging.example.com --ui --debug
+```
+
+### Configuration Priority
+
+Settings are applied in the following order (highest priority first):
+
+1. **Command-line arguments** (`--ui`, `--chrome-url=...`, etc.)
+2. **Environment variables** (.env file)
+3. **Default values** (built-in defaults)
+
+### Configuration Validation
+
+The application validates all configuration on startup:
+
+- **Rules Directory**: Must exist and contain valid `.js` rule files
+- **Chrome URL**: Must be a valid URL format
+- **Log Level**: Must be 0-3 or NONE/INFO/DEBUG/VERBOSE
+- **Port Configuration**: Proxy port must be available
+
+Invalid configurations will show detailed error messages with suggestions for fixes.
 
 ## 🎮 Interactive Terminal UI
 
