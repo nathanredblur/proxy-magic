@@ -81,7 +81,7 @@ start_proxy_server() {
     
     # Set environment variables and start the proxy server in background
     export NODE_TLS_REJECT_UNAUTHORIZED=0
-    nohup node proxy-server.js > /tmp/proxy-setup.log 2>&1 &
+    nohup node start-proxy.js > /tmp/proxy-setup.log 2>&1 &
     local pid=$!
     echo $pid > "$PID_FILE"
     

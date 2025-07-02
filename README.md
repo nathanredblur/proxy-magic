@@ -181,7 +181,7 @@ pnpm chrome          # Only start Chrome (proxy must be running)
 ```bash
 # Start proxy server manually
 export NODE_TLS_REJECT_UNAUTHORIZED=0
-node proxy-server.js
+node start-proxy.js
 
 # In another terminal, start Chrome with proxy
 /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
@@ -348,7 +348,7 @@ With `--log=DEBUG`, you'll see:
 ```
 proxy-magic/
 ├── README.md                 # This file
-├── proxy-server.js          # Main proxy server with advanced logging
+├── start-proxy.js          # Main proxy server with advanced logging
 ├── rules.js                 # Rule loader
 ├── types.js                 # TypeScript definitions
 ├── utils.js                 # Utility functions
