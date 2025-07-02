@@ -146,14 +146,24 @@ class TerminalUI {
             border: 'line',
             style: {
                 border: { fg: this.currentPanel === 'rules' ? 'yellow' : 'gray' },
-                selected: { bg: 'blue', fg: 'white' },
-                item: { fg: 'white' }
+                selected: { 
+                    bg: 'blue', 
+                    fg: 'white',
+                    bold: true
+                },
+                item: { 
+                    fg: 'white',
+                },
+                focus: {
+                    border: { fg: 'yellow' }
+                }
             },
-            tags: true,
+            tags: false, // Disable tags to avoid color conflicts
             mouse: true,
-            keys: true,
-            vi: true,
+            keys: true, // Keep keys for native navigation
+            vi: false, // Disable vi mode to avoid conflicts
             scrollable: true,
+            interactive: true,
             scrollbar: {
                 ch: ' ',
                 track: {
@@ -284,41 +294,42 @@ class TerminalUI {
             }
         });
 
-        // Navigation keys
-        this.screen.key(['j', 'down'], () => {
-            this.focusCurrentPanel();
-            if (this.currentPanel === 'rules') {
-                this.ruleBox.down();
-                this.render();
-            }
-        });
-
-        this.screen.key(['k', 'up'], () => {
-            this.focusCurrentPanel();
-            if (this.currentPanel === 'rules') {
-                this.ruleBox.up();
-                this.render();
-            }
-        });
-
+        // Navigation keys - let blessed handle native navigation
         this.screen.key(['pageup'], () => {
-            this.focusCurrentPanel();
             if (this.currentPanel === 'logs') {
                 this.logBox.scroll(-10);
-                this.render();
-            } else if (this.currentPanel === 'rules') {
-                this.ruleBox.move(-5);
                 this.render();
             }
         });
 
         this.screen.key(['pagedown'], () => {
-            this.focusCurrentPanel();
             if (this.currentPanel === 'logs') {
                 this.logBox.scroll(10);
                 this.render();
-            } else if (this.currentPanel === 'rules') {
-                this.ruleBox.move(5);
+            }
+        });
+
+        // Setup rule box specific events
+        this.ruleBox.on('select', (item, index) => {
+            // Handle selection change if needed
+            this.render();
+        });
+
+        // Handle panel focus on click
+        this.logBox.on('click', () => {
+            if (this.currentPanel !== 'logs') {
+                this.currentPanel = 'logs';
+                this.updatePanelBorders();
+                this.focusCurrentPanel();
+                this.render();
+            }
+        });
+
+        this.ruleBox.on('click', () => {
+            if (this.currentPanel !== 'rules') {
+                this.currentPanel = 'rules';
+                this.updatePanelBorders();
+                this.focusCurrentPanel();
                 this.render();
             }
         });
@@ -367,7 +378,14 @@ class TerminalUI {
      */
     updateRulePanel() {
         const rules = this.ruleManager.getFormattedRules();
+        const currentSelection = this.ruleBox.selected || 0;
+        
         this.ruleBox.setItems(rules);
+        
+        // Preserve selection if valid
+        if (currentSelection < rules.length) {
+            this.ruleBox.select(currentSelection);
+        }
     }
 
     /**
@@ -388,11 +406,15 @@ class TerminalUI {
         const rulesCount = this.ruleManager.getRuleCount();
         const enabledCount = this.ruleManager.getEnabledCount();
         
+        const panelCommands = this.currentPanel === 'rules' 
+            ? 'Space=Toggle | Enter=Details | r=Reload'
+            : 'c=Clear | f=Filter';
+        
         return `${chromeStatus} | ` +
                `📋 Panel: ${this.currentPanel.toUpperCase()} | ` +
                `📦 Rules: ${enabledCount}/${rulesCount.total} enabled | ` +
                `📜 Logs: ${this.logFormatter.getLogCount()} | ` +
-               `⌨️  Press F1 for help, b for browser`;
+               `${panelCommands} | F1=Help | b=Chrome | q=Quit`;
     }
 
     /**
@@ -400,37 +422,43 @@ class TerminalUI {
      */
     getHelpText() {
         return `
-{center}🎮 Proxy Magic - Terminal UI Help{/center}
+{center}{bold}🎮 Proxy Magic - Terminal UI Help{/bold}{/center}
 
 {bold}NAVIGATION:{/bold}
-  Tab             Switch between Log and Rule panels
-  ↑/↓, j/k        Navigate through rules
-  Page Up/Down    Scroll logs or navigate rules faster
+  Tab              Switch between Log and Rule panels
+  Click            Click on panels to switch focus
+  ↑/↓ Arrow Keys   Navigate through rules
+  Page Up/Down     Scroll logs
 
-{bold}GENERAL:{/bold}
-  F1 or ?         Show/hide this help
-  q or Ctrl+C     Quit application
-  Esc             Close overlays (help, details)
+{bold}GENERAL COMMANDS:{/bold}
+  F1 or ?          Show/hide this help
+  q or Ctrl+C      Quit application
+  Esc              Close overlays (help, details)
+  b                Launch Chrome browser with proxy
 
-{bold}CHROME:{/bold}
-  b               Launch Chrome browser with proxy
+{bold}LOG PANEL COMMANDS:{/bold}
+  c                Clear all logs
+  f                Show filter options (coming soon)
 
-{bold}LOG PANEL:{/bold}
-  c               Clear all logs
-  f               Show filter options
+{bold}RULE PANEL COMMANDS:{/bold}
+  Space            Toggle rule on/off (IMMEDIATE EFFECT)
+  Enter            Show rule details
+  r                Reload all rules from disk
 
-{bold}RULE PANEL:{/bold}
-  Space           Toggle rule on/off
-  Enter           Show rule details
-  r               Reload all rules
+{bold}RULE STATUS INDICATORS:{/bold}
+  ✅ Enabled rule   Rule is active and will process requests
+  ❌ Disabled rule  Rule is inactive and will be ignored
+  [rules]          System rule from rules/ directory
+  [user-rules]     User rule from user-rules/ directory
 
-{bold}LEGEND:{/bold}
-  🟢 Enabled rule    🔴 Disabled rule
-  📝 Request log     📤 Response log
-  ❌ Error log       ⚙️  Rule activity
-  📊 System log      📈 Stats update
+{bold}LOG TYPES:{/bold}
+  📝 Request       Incoming HTTP request
+  📤 Response      Outgoing HTTP response  
+  ❌ Error         Error or warning message
+  ⚙️  Rule         Rule activation/deactivation
+  📊 System        System status message
 
-{center}Press Esc to close this help{/center}
+{center}{bold}Press Esc to close this help{/bold}{/center}
         `;
     }
 
@@ -439,13 +467,17 @@ class TerminalUI {
      */
     switchPanel() {
         this.currentPanel = this.currentPanel === 'logs' ? 'rules' : 'logs';
-        
-        // Update border colors
-        this.logBox.style.border.fg = this.currentPanel === 'logs' ? 'yellow' : 'gray';
-        this.ruleBox.style.border.fg = this.currentPanel === 'rules' ? 'yellow' : 'gray';
-        
+        this.updatePanelBorders();
         this.focusCurrentPanel();
         this.render();
+    }
+
+    /**
+     * Update panel border colors based on current panel
+     */
+    updatePanelBorders() {
+        this.logBox.style.border.fg = this.currentPanel === 'logs' ? 'yellow' : 'gray';
+        this.ruleBox.style.border.fg = this.currentPanel === 'rules' ? 'yellow' : 'gray';
     }
 
     /**
@@ -491,6 +523,10 @@ class TerminalUI {
             this.logBox.focus();
         } else {
             this.ruleBox.focus();
+            // Ensure there's a selection
+            if (this.ruleBox.items.length > 0 && this.ruleBox.selected === -1) {
+                this.ruleBox.select(0);
+            }
         }
     }
 
@@ -532,9 +568,15 @@ class TerminalUI {
      */
     async reloadRules() {
         try {
-            this.logFormatter.logSystem('🔄 Reloading rules...');
+            this.logFormatter.logSystem('🔄 Reloading rules from disk...');
             await this.ruleManager.reloadRules();
-            this.logFormatter.logSystem('✅ Rules reloaded successfully');
+            this.logFormatter.logSystem('📋 Rules reloaded, updating proxy...');
+            
+            // Trigger immediate rule reload in proxy
+            await this.reloadProxyRules();
+            
+            this.logFormatter.logSystem('✅ Rules and proxy updated successfully');
+            this.updateRulePanel();
         } catch (error) {
             this.logFormatter.logSystem(`❌ Error reloading rules: ${error.message}`);
         }
@@ -551,16 +593,50 @@ class TerminalUI {
             
             if (selectedIndex >= 0 && selectedIndex < rules.length) {
                 const rule = rules[selectedIndex];
+                const oldState = rule.enabled;
                 const newState = await this.ruleManager.toggleRule(rule.filename);
                 const status = newState ? 'enabled' : 'disabled';
                 
-                this.logFormatter.logRuleActivity(rule.filename, `Rule ${status}`);
+                this.logFormatter.logRuleActivity(rule.filename, `Rule ${status} (${oldState ? 'ON' : 'OFF'} → ${newState ? 'ON' : 'OFF'})`);
+                this.logFormatter.logSystem(`🔄 Updating proxy rules for immediate effect...`);
+                
+                // Get current rule counts
+                const enabledRules = this.ruleManager.getEnabledRuleModules();
+                this.logFormatter.logSystem(`📊 Currently active rules: ${enabledRules.length}`);
+                
+                // Trigger immediate rule reload in proxy
+                await this.reloadProxyRules();
+                
+                this.logFormatter.logSystem(`✅ Rule toggle complete - next request will use updated rules`);
                 this.updateRulePanel();
             }
         } catch (error) {
             this.logFormatter.logSystem(`❌ Error toggling rule: ${error.message}`);
         }
         this.render();
+    }
+
+    /**
+     * Reload proxy rules for immediate effect
+     */
+    async reloadProxyRules() {
+        if (this.onRulesChanged) {
+            try {
+                // Get the updated enabled rules
+                const enabledRules = this.ruleManager.getEnabledRuleModules();
+                // Call the callback to update proxy
+                await this.onRulesChanged(enabledRules);
+            } catch (error) {
+                this.logFormatter.logSystem(`❌ Error reloading proxy rules: ${error.message}`);
+            }
+        }
+    }
+
+    /**
+     * Set callback for when rules change
+     */
+    setRulesChangedCallback(callback) {
+        this.onRulesChanged = callback;
     }
 
     /**

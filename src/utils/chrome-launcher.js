@@ -74,25 +74,50 @@ class ChromeLauncher {
             logger.log(1, `[CHROME] Launching Chrome with URL: ${url}`);
             logger.log(2, `[CHROME] Command: ${this.chromePath} ${args.join(' ')}`);
 
-            // Spawn Chrome process
+            // Spawn Chrome process with stderr suppression
             this.chromeProcess = spawn(this.chromePath, args, {
-                detached: true,
-                stdio: options.stdio || 'ignore'
+                detached: false, // Keep attached to prevent unexpected exits
+                stdio: ['ignore', 'ignore', 'pipe'] // Capture stderr to suppress Chrome noise
             });
+
+            // Suppress Chrome stderr noise but log critical errors
+            if (this.chromeProcess.stderr) {
+                this.chromeProcess.stderr.on('data', (data) => {
+                    const stderrText = data.toString();
+                    // Only log truly critical Chrome errors, ignore noise
+                    if (stderrText.includes('FATAL') || stderrText.includes('Assertion failed')) {
+                        logger.error('[CHROME STDERR]', stderrText);
+                    }
+                    // Suppress common Chrome noise silently
+                });
+            }
 
             // Handle Chrome process events
             this.chromeProcess.on('error', (error) => {
+                // Filter out common Chrome errors that aren't critical
+                if (error.message && (
+                    error.message.includes('allocator') ||
+                    error.message.includes('TensorFlow') ||
+                    error.message.includes('delegate') ||
+                    error.message.includes('XNNPACK')
+                )) {
+                    // Silently ignore these Chrome internal errors
+                    return;
+                }
+                
                 logger.error('[CHROME] Failed to start Chrome:', error.message);
                 this.chromeProcess = null;
+                // Don't exit the proxy on Chrome startup errors
             });
 
             this.chromeProcess.on('exit', (code, signal) => {
                 logger.log(1, `[CHROME] Chrome exited with code: ${code}, signal: ${signal}`);
                 this.chromeProcess = null;
+                // Don't exit the proxy when Chrome closes normally
             });
 
-            // Unref to allow parent process to exit
-            this.chromeProcess.unref();
+            // Don't unref - keep Chrome as a child process
+            // this.chromeProcess.unref();
 
             return { 
                 success: true, 
