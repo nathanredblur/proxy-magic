@@ -80,7 +80,7 @@ fi
 export PROXY_LOG_LEVEL=$LOG_LEVEL
 
 # Command to start the Node.js server
-NODE_SERVER_CMD="node proxy-server.js"
+NODE_SERVER_CMD="node start-proxy.js"
 
 # Chrome application path
 CHROME_APP_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
