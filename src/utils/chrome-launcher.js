@@ -74,55 +74,30 @@ class ChromeLauncher {
             logger.log(1, `[CHROME] Launching Chrome with URL: ${url}`);
             logger.log(2, `[CHROME] Command: ${this.chromePath} ${args.join(' ')}`);
 
-            // Spawn Chrome process with stderr suppression
+            // Launch Chrome as completely detached process
+            // This makes Chrome independent from our Node.js process
             this.chromeProcess = spawn(this.chromePath, args, {
-                detached: false, // Keep attached to prevent unexpected exits
-                stdio: ['ignore', 'ignore', 'pipe'] // Capture stderr to suppress Chrome noise
+                detached: true,    // Make Chrome completely independent
+                stdio: 'ignore'    // Ignore all stdio (stdin, stdout, stderr)
             });
 
-            // Suppress Chrome stderr noise but log critical errors
-            if (this.chromeProcess.stderr) {
-                this.chromeProcess.stderr.on('data', (data) => {
-                    const stderrText = data.toString();
-                    // Only log truly critical Chrome errors, ignore noise
-                    if (stderrText.includes('FATAL') || stderrText.includes('Assertion failed')) {
-                        logger.error('[CHROME STDERR]', stderrText);
-                    }
-                    // Suppress common Chrome noise silently
-                });
-            }
+            // Immediately unref the process so Node.js doesn't wait for it
+            this.chromeProcess.unref();
 
-            // Handle Chrome process events
-            this.chromeProcess.on('error', (error) => {
-                // Filter out common Chrome errors that aren't critical
-                if (error.message && (
-                    error.message.includes('allocator') ||
-                    error.message.includes('TensorFlow') ||
-                    error.message.includes('delegate') ||
-                    error.message.includes('XNNPACK')
-                )) {
-                    // Silently ignore these Chrome internal errors
-                    return;
-                }
-                
-                logger.error('[CHROME] Failed to start Chrome:', error.message);
-                this.chromeProcess = null;
-                // Don't exit the proxy on Chrome startup errors
-            });
+            // Don't add ANY event listeners to avoid interference
+            // Chrome is now completely fire-and-forget
 
-            this.chromeProcess.on('exit', (code, signal) => {
-                logger.log(1, `[CHROME] Chrome exited with code: ${code}, signal: ${signal}`);
-                this.chromeProcess = null;
-                // Don't exit the proxy when Chrome closes normally
-            });
+            const pid = this.chromeProcess.pid;
+            
+            // Clear the reference since we don't want to manage Chrome
+            this.chromeProcess = null;
 
-            // Don't unref - keep Chrome as a child process
-            // this.chromeProcess.unref();
+            logger.log(1, `[CHROME] Chrome launched successfully as detached process (PID: ${pid})`);
 
             return { 
                 success: true, 
-                message: `Chrome launched with URL: ${url}`,
-                pid: this.chromeProcess.pid 
+                message: `Chrome launched independently with URL: ${url}`,
+                pid: pid 
             };
 
         } catch (error) {
@@ -154,45 +129,25 @@ class ChromeLauncher {
 
     /**
      * Check if Chrome is running
-     * @returns {boolean} True if Chrome process is active
+     * Note: Since Chrome runs as detached process, we can't track its status
+     * @returns {boolean} Always returns false since we don't track detached processes
      */
     isChromeRunning() {
-        return this.chromeProcess && !this.chromeProcess.killed;
+        // We don't track Chrome status since it runs as detached process
+        return false;
     }
 
     /**
      * Close Chrome if it's running
-     * @returns {Promise} Promise that resolves when Chrome is closed
+     * Note: Since Chrome runs as detached process, we can't close it programmatically
+     * @returns {Promise} Promise that resolves immediately
      */
     async closeChrome() {
         return new Promise((resolve) => {
-            if (!this.chromeProcess || this.chromeProcess.killed) {
-                resolve({ success: true, message: 'Chrome was not running' });
-                return;
-            }
-
-            logger.log(1, '[CHROME] Closing Chrome...');
-
-            // Set up exit handler
-            this.chromeProcess.once('exit', () => {
-                this.chromeProcess = null;
-                resolve({ success: true, message: 'Chrome closed' });
+            resolve({ 
+                success: false, 
+                message: 'Cannot close Chrome - it runs as independent detached process. Close manually.' 
             });
-
-            // Kill the process
-            try {
-                this.chromeProcess.kill('SIGTERM');
-                
-                // Force kill after 5 seconds if it doesn't close gracefully
-                setTimeout(() => {
-                    if (this.chromeProcess && !this.chromeProcess.killed) {
-                        this.chromeProcess.kill('SIGKILL');
-                    }
-                }, 5000);
-            } catch (error) {
-                logger.error('[CHROME] Error closing Chrome:', error);
-                resolve({ success: false, message: `Error closing Chrome: ${error.message}` });
-            }
         });
     }
 
@@ -202,11 +157,12 @@ class ChromeLauncher {
      */
     getStatus() {
         return {
-            running: this.isChromeRunning(),
-            pid: this.chromeProcess ? this.chromeProcess.pid : null,
+            running: false, // Always false since we don't track detached processes
+            pid: null,      // No PID available for detached processes
             proxyUrl: `http://${this.proxyHost}:${this.proxyPort}`,
             profileDir: this.profileDir,
-            chromePath: this.chromePath
+            chromePath: this.chromePath,
+            mode: 'detached' // Indicate Chrome runs independently
         };
     }
 
