@@ -326,10 +326,14 @@ function startProxy(proxy, config, paths, terminalUI = null, startupConfig = {})
                 // Set proxy configuration for Chrome launcher
                 chromeLauncher.setProxyConfig(config.host, config.port);
                 
-                const chromeUrl = startupConfig.chromeUrl || 'http://httpbin.org/';
+                const chromeUrl = startupConfig.chromeUrl;
                 
                 logger.log(1, '🚀 Launching Chrome browser automatically...');
-                logger.log(1, `📍 Starting URL: ${chromeUrl}`);
+                if (chromeUrl && chromeUrl.trim() !== '') {
+                    logger.log(1, `📍 Starting URL: ${chromeUrl}`);
+                } else {
+                    logger.log(1, '📍 Using Chrome\'s default behavior (last session/homepage)');
+                }
                 
                 if (terminalUI) {
                     terminalUI.logSystem('🚀 Launching Chrome browser automatically...');

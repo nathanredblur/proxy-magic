@@ -24,7 +24,7 @@ function parseArguments() {
         debug: process.env.DEFAULT_DEBUG === 'true',
         logLevel: process.env.LOG_LEVEL || null,
         rulesDir: process.env.RULES_DIR || null,
-        chromeUrl: process.env.CHROME_START_URL || 'https://example.org/'
+        chromeUrl: process.env.CHROME_START_URL || null  // null means use Chrome's default behavior
     };
     
     for (let i = 0; i < args.length; i++) {
@@ -51,9 +51,11 @@ function parseArguments() {
         } else if (arg === '--rules') {
             config.rulesDir = args[++i];
         } else if (arg.startsWith('--chrome-url=')) {
-            config.chromeUrl = arg.split('=')[1];
+            const url = arg.split('=')[1];
+            config.chromeUrl = url && url.trim() !== '' ? url : null;
         } else if (arg === '--chrome-url') {
-            config.chromeUrl = args[++i];
+            const url = args[++i];
+            config.chromeUrl = url && url.trim() !== '' ? url : null;
         } else if (arg === '--help' || arg === '-h') {
             showHelp();
             process.exit(0);
@@ -82,7 +84,7 @@ OPTIONS:
   --no-debug           Disable debug mode
   --log LEVEL, -l      Set log level (default from .env: ${process.env.LOG_LEVEL || '1'})
   --rules DIR          Rules directory (default from .env: ${process.env.RULES_DIR || 'rules'})
-  --chrome-url URL     Chrome startup URL (default from .env: ${process.env.CHROME_START_URL || 'http://httpbin.org/'})
+  --chrome-url URL     Chrome startup URL (empty = Chrome's default behavior, from .env: ${process.env.CHROME_START_URL || 'default behavior'})
   --help, -h           Show this help
 
 EXAMPLES:
@@ -97,7 +99,7 @@ CONFIGURATION:
   - DEFAULT_CHROME=true/false  
   - DEFAULT_DEBUG=true/false
   - RULES_DIR=user-rules
-  - CHROME_START_URL=http://httpbin.org/
+  - CHROME_START_URL=  (empty for Chrome's default behavior)
   - LOG_LEVEL=1
     `);
 }

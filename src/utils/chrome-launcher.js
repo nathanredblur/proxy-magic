@@ -40,28 +40,35 @@ class ChromeLauncher {
 
     /**
      * Get Chrome command line arguments
-     * @param {string} url - URL to open
+     * @param {string|null} url - URL to open (null/undefined for default Chrome behavior)
      * @returns {Array} Chrome arguments
      */
-    getChromeArgs(url = 'about:blank') {
-        return [
+    getChromeArgs(url = null) {
+        const baseArgs = [
             `--proxy-server=http://${this.proxyHost}:${this.proxyPort}`,
             '--no-first-run',
             `--user-data-dir=${this.profileDir}`,
             '--disable-session-crashed-bubble',
             '--disable-background-timer-throttling',
-            '--disable-background-mode',
-            url
+            '--disable-background-mode'
         ];
+        
+        // Only add URL if one is specifically provided
+        // This allows Chrome to use its default behavior (last session, homepage, etc.)
+        if (url && url.trim() !== '') {
+            baseArgs.push(url);
+        }
+        
+        return baseArgs;
     }
 
     /**
      * Launch Chrome with proxy settings
-     * @param {string} url - URL to open (default: about:blank)
+     * @param {string|null} url - URL to open (null/undefined for Chrome's default behavior)
      * @param {Object} options - Launch options
      * @returns {Promise} Promise that resolves when Chrome starts
      */
-    async launchChrome(url = 'about:blank', options = {}) {
+    async launchChrome(url = null, options = {}) {
         try {
             // Check if Chrome is already running
             if (this.chromeProcess && !this.chromeProcess.killed) {
@@ -71,7 +78,11 @@ class ChromeLauncher {
 
             const args = this.getChromeArgs(url);
             
-            logger.log(1, `[CHROME] Launching Chrome with URL: ${url}`);
+            if (url && url.trim() !== '') {
+                logger.log(1, `[CHROME] Launching Chrome with URL: ${url}`);
+            } else {
+                logger.log(1, '[CHROME] Launching Chrome with default behavior (last session/homepage)');
+            }
             logger.log(2, `[CHROME] Command: ${this.chromePath} ${args.join(' ')}`);
 
             // Launch Chrome as completely detached process
@@ -94,9 +105,13 @@ class ChromeLauncher {
 
             logger.log(1, `[CHROME] Chrome launched successfully as detached process (PID: ${pid})`);
 
+            const message = url && url.trim() !== '' 
+                ? `Chrome launched independently with URL: ${url}`
+                : 'Chrome launched independently with default behavior (last session/homepage)';
+
             return { 
                 success: true, 
-                message: `Chrome launched independently with URL: ${url}`,
+                message: message,
                 pid: pid 
             };
 
@@ -111,19 +126,20 @@ class ChromeLauncher {
 
     /**
      * Launch Chrome with a specific test URL
-     * @param {string} testType - Type of test (httpbin, example, etc.)
+     * @param {string} testType - Type of test (httpbin, example, etc., or 'default' for Chrome's default behavior)
      * @returns {Promise} Promise that resolves when Chrome starts
      */
-    async launchWithTestUrl(testType = 'httpbin') {
+    async launchWithTestUrl(testType = 'default') {
         const testUrls = {
             httpbin: 'http://httpbin.org/',
             example: 'https://example.com',
             google: 'https://google.com',
             localhost: 'http://localhost:3000',
-            blank: 'about:blank'
+            blank: 'about:blank',
+            default: null  // Use Chrome's default behavior
         };
 
-        const url = testUrls[testType] || testUrls.blank;
+        const url = testUrls[testType] !== undefined ? testUrls[testType] : testUrls.default;
         return this.launchChrome(url);
     }
 
