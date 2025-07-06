@@ -32,8 +32,8 @@ class TerminalUI {
         this.refreshInterval = null;
         this.initialized = false;
         
-        // Store configuration
-        this.chromeUrl = options.chromeUrl || 'http://httpbin.org/';
+        // Store configuration  
+        this.chromeUrl = options.chromeUrl || null;  // null = use Chrome's default behavior
     }
 
     /**
@@ -550,7 +550,11 @@ class TerminalUI {
     async launchChrome() {
         try {
             this.logFormatter.logSystem('🚀 Launching Chrome browser as independent process...');
-            this.logFormatter.logSystem(`📍 Starting URL: ${this.chromeUrl}`);
+            if (this.chromeUrl && this.chromeUrl.trim() !== '') {
+                this.logFormatter.logSystem(`📍 Starting URL: ${this.chromeUrl}`);
+            } else {
+                this.logFormatter.logSystem('📍 Using Chrome\'s default behavior (last session/homepage)');
+            }
             
             const result = await chromeLauncher.launchChrome(this.chromeUrl);
             

@@ -123,10 +123,12 @@ DEFAULT_CHROME=false
 DEFAULT_DEBUG=false
 
 # Chrome Configuration
-CHROME_START_URL=https://example.org/
+# Leave empty for Chrome's default behavior (opens last session/homepage)
+CHROME_START_URL=
 # Alternative URLs you can use:
 # CHROME_START_URL=https://example.com
 # CHROME_START_URL=https://google.com
+# CHROME_START_URL=http://httpbin.org/
 # CHROME_START_URL=about:blank
 # CHROME_START_URL=http://localhost:3000
 
@@ -186,7 +188,7 @@ DEFAULT_UI=false
 DEFAULT_CHROME=true
 DEFAULT_DEBUG=false
 RULES_DIR=rules
-CHROME_START_URL=https://example.org/
+CHROME_START_URL=
 LOG_LEVEL=1
 ```
 
@@ -205,12 +207,39 @@ Settings are applied in the following order (highest priority first):
 2. **Environment variables** (.env file)
 3. **Default values** (built-in defaults)
 
+### Chrome Startup Behavior
+
+**Default Behavior (Recommended)**:
+
+- When `CHROME_START_URL` is empty or not set, Chrome opens with its default behavior
+- This respects your Chrome settings: last session, homepage, startup pages, etc.
+- Most natural user experience - continues where you left off
+
+**Custom URL**:
+
+- Set `CHROME_START_URL=https://example.com` to open a specific URL
+- Useful for development/testing specific sites
+- Overrides Chrome's default behavior
+
+Examples:
+
+```bash
+# Use Chrome's default behavior (recommended)
+./start.sh --chrome
+
+# Open specific URL
+./start.sh --chrome --chrome-url=https://google.com
+
+# Development server
+./start.sh --chrome --chrome-url=http://localhost:3000
+```
+
 ### Configuration Validation
 
 The application validates all configuration on startup:
 
 - **Rules Directory**: Must exist and contain valid `.js` rule files
-- **Chrome URL**: Must be a valid URL format
+- **Chrome URL**: Must be a valid URL format (if provided)
 - **Log Level**: Must be 0-3 or NONE/INFO/DEBUG/VERBOSE
 - **Port Configuration**: Proxy port must be available
 

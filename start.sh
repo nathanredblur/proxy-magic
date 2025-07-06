@@ -151,7 +151,7 @@ while [[ $# -gt 0 ]]; do
             echo "  DEFAULT_CHROME=${DEFAULT_CHROME:-false}"
             echo "  DEFAULT_DEBUG=${DEFAULT_DEBUG:-false}"
             echo "  RULES_DIR=${RULES_DIR:-rules}"
-            echo "  CHROME_START_URL=${CHROME_START_URL:-https://example.org/}"
+            echo "  CHROME_START_URL=${CHROME_START_URL:-(Chrome\'s default behavior)}"
             echo "  LOG_LEVEL=${LOG_LEVEL:-1}"
             echo ""
             echo "Modes:"
