@@ -4,7 +4,8 @@
   "description": "",
   "main": "src/index.js",
   "bin": {
-    "proxy-magic": "./src/index.js"
+    "proxy-magic": "./src/index.js",
+    "proxy-magic-setup": "./setup.sh"
   },
   "scripts": {
     "start": "node src/index.js",

@@ -25,9 +25,16 @@ function getProxyConfig(startupConfig = {}) {
 function getCaCertPath(baseDir, caDirName = null) {
     const actualCaDirName = caDirName || appConfig.getProxyConfig().caCertDir;
     
-    // Go up one directory from src/ to the project root
-    const projectRoot = path.join(baseDir, '..');
-    const caDir = path.join(projectRoot, actualCaDirName);
+    let caDir;
+    if (path.isAbsolute(actualCaDirName)) {
+        // If it's an absolute path, use it directly
+        caDir = actualCaDirName;
+    } else {
+        // If it's relative, resolve from project root
+        const projectRoot = path.join(baseDir, '..');
+        caDir = path.join(projectRoot, actualCaDirName);
+    }
+    
     const caCertPath = path.join(caDir, 'certs', 'ca.pem');
     
     return {

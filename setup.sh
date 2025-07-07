@@ -11,7 +11,8 @@ NC='\033[0m' # No Color
 
 # Configuration
 PROXY_PORT=8080
-CA_DIR=".proxy_certs"
+# Certificate paths (using user home directory)
+CA_DIR="$HOME/.proxy_certs"
 CA_CERT_PATH="$CA_DIR/certs/ca.pem"
 STARTUP_TIMEOUT=15
 PID_FILE="/tmp/proxy-magic-setup.pid"
@@ -73,7 +74,7 @@ start_proxy_server() {
     # Use the new --create-cert option to generate certificates only
     export NODE_TLS_REJECT_UNAUTHORIZED=0
     
-    if node src/index.js --create-cert > /tmp/proxy-setup.log 2>&1; then
+    if proxy-magic --create-cert > /tmp/proxy-setup.log 2>&1; then
         success "Certificates generated successfully"
         return 0
     else
@@ -288,6 +289,7 @@ main() {
     # Handle special commands first
     if [ "$show_certificates" = true ]; then
         echo -e "${MAGENTA}🔍 Current Certificates${NC}"
+        check_requirements
         show_existing_certificates
         exit 0
     fi
@@ -308,6 +310,10 @@ main() {
     
     # Check system requirements
     check_requirements
+    
+    # Show certificate location
+    log "Certificate directory: $CA_DIR"
+    log "Certificate file: $CA_CERT_PATH"
     
     # Clean old certificates if requested
     if [ "$clean_certificates" = true ]; then
@@ -349,7 +355,7 @@ main() {
     success "🎉 Setup completed successfully!"
     echo ""
     log "Next steps"
-    log "Run: node src/index.js --chrome-url https://www.example.org --chrome"
+    log "Run: proxy-magic --chrome-url https://www.example.org --chrome"
     log "or browse to any HTTPS site to test SSL interception"
     echo ""
     log "Certificate location: $CA_CERT_PATH"

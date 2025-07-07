@@ -5,6 +5,7 @@
 
 const { spawn } = require('child_process');
 const path = require('path');
+const os = require('os');
 const { logger } = require('./logger');
 
 /**
@@ -16,7 +17,7 @@ class ChromeLauncher {
         this.proxyHost = '127.0.0.1';
         this.proxyPort = 8080;
         this.chromePath = this.getChromePath();
-        this.profileDir = path.resolve('.chrome_proxy_profile');
+        this.profileDir = path.join(os.homedir(), '.chrome_proxy_profile');
     }
 
     /**

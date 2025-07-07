@@ -1,5 +1,10 @@
 # Proxy Magic Configuration Example
-# Copy this file to config.yaml and modify as needed
+# Copy this file to config.yaml (project config) or ~/.proxy-magic.yml (user global config)
+#
+# DEFAULT LOCATIONS:
+# - SSL Certificates: ~/.proxy_certs/ (user home directory)
+# - Chrome Profile: ~/.chrome_proxy_profile/ (user home directory)
+# - Config Priority: ~/.proxy-magic.yml > ./config.yaml > ./config.yml > ./config.json
 
 # Interface Options
 ui: true # Enable Interactive Terminal UI
@@ -23,8 +28,9 @@ proxy:
   host: "127.0.0.1" # Bind address (localhost)
   logLevel: 2 # Internal proxy log level
   statsInterval: 5 # Statistics reporting interval (minutes)
-  caCertDir: ".proxy_certs" # Directory for SSL certificates
-
+  # caCertDir: "~/.proxy_certs" # Default: SSL certificates in user home directory
+  # caCertDir: "/custom/path/certs" # Example: Custom absolute path
+  # caCertDir: "project_certs" # Example: Relative to current directory
 # Example configurations for different use cases:
 
 # Development mode (recommended for testing):
