@@ -97,7 +97,7 @@ class LogFormatter {
             minute: '2-digit', 
             second: '2-digit' 
         });
-        return chalk.gray(time);
+        return chalk.blue(time);
     }
 
     /**

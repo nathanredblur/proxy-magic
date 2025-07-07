@@ -22,6 +22,10 @@ chromeUrl: null # URL to open when Chrome starts (null = default behavior)
 # chromeUrl: "https://httpbin.org/"  # Example: test site for proxy testing
 # chromeUrl: "https://google.com/"   # Example: start with Google
 
+# Chrome Profile Directory
+# chromeProfileDir: "~/.chrome_proxy_profile" # Default: Chrome profile in user home directory
+# chromeProfileDir: "/custom/path/chrome_profile" # Example: Custom absolute path
+
 # Proxy Server Configuration
 proxy:
   port: 8080 # Proxy server port
