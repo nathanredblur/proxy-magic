@@ -8,11 +8,10 @@
 // Disable TLS certificate verification for development
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-const { main } = require('./src/proxy-server');
 const fs = require('fs');
 const path = require('path');
 const YAML = require('yaml');
-const appConfig = require('./src/utils/app-config');
+const appConfig = require('./utils/app-config');
 
 // Remove dotenv dependency - no longer used
 
@@ -158,7 +157,7 @@ function showHelp() {
 Proxy Magic - HTTP/HTTPS Proxy with Rule Management
 
 USAGE:
-  node start-proxy.js [OPTIONS]
+  node src/index.js [OPTIONS]
 
 OPTIONS:
   --config FILE            Path to configuration file (JSON or YAML format)
@@ -183,14 +182,14 @@ CONFIGURATION PRIORITY:
   - config.json (legacy JSON format)
 
 EXAMPLES:
-  node start-proxy.js                                        # Use default config.yaml if exists
-  node start-proxy.js --config myconfig.yaml                # Use specific YAML config file
-  node start-proxy.js --config myconfig.json                # Use specific JSON config file
-  node start-proxy.js --create-cert                         # Create certificates only
-  node start-proxy.js --ui --chrome                         # Start with UI and Chrome
-  node start-proxy.js --ui=true --chrome=false             # Explicit boolean values
-  node start-proxy.js --rules user-rules --ui              # Use user-rules directory with UI
-  node start-proxy.js --chrome-url https://google.com      # Chrome starts with Google
+  node src/index.js                                        # Use default config.yaml if exists
+  node src/index.js --config myconfig.yaml                # Use specific YAML config file
+  node src/index.js --config myconfig.json                # Use specific JSON config file
+  node src/index.js --create-cert                         # Create certificates only
+  node src/index.js --ui --chrome                         # Start with UI and Chrome
+  node src/index.js --ui=true --chrome=false             # Explicit boolean values
+  node src/index.js --rules user-rules --ui              # Use user-rules directory with UI
+  node src/index.js --chrome-url https://google.com      # Chrome starts with Google
 
 CONFIGURATION FILE FORMAT:
   YAML format (recommended - supports comments):
@@ -220,13 +219,15 @@ async function startProxy() {
     try {
         const config = parseArguments();
         
-        // Initialize the centralized configuration
+        // Initialize the centralized configuration FIRST
         appConfig.initialize(config);
+        
+        // Import proxy-server after appConfig is initialized
+        const { main, createCertificatesOnly } = require('./proxy-server');
         
         // If only creating certificates, do that and exit
         if (config.createCert) {
             console.log('🔐 Creating certificates...');
-            const { createCertificatesOnly } = require('./src/proxy-server');
             await createCertificatesOnly(config);
             console.log('✅ Certificates created successfully');
             process.exit(0);

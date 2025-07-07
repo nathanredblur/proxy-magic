@@ -14,7 +14,7 @@ The application automatically searches for configuration files in the following 
 
 ```bash
 # Automatically searches for config.yaml, config.yml, or config.json
-node start-proxy.js
+node src/index.js
 ```
 
 ### Specific Configuration File
@@ -22,8 +22,8 @@ node start-proxy.js
 To use a specific configuration file, use the `--config` parameter:
 
 ```bash
-node start-proxy.js --config my-config.yaml
-node start-proxy.js --config my-config.json
+node src/index.js --config my-config.yaml
+node src/index.js --config my-config.json
 ```
 
 ### Configuration File Structure
@@ -98,16 +98,16 @@ Command line parameters take priority over the configuration file:
 
 ```bash
 # Automatic configuration from config.json
-node start-proxy.js
+node src/index.js
 
 # Simplified boolean parameters
-node start-proxy.js --ui                    # ui = true
-node start-proxy.js --ui=true               # ui = true
-node start-proxy.js --ui=false              # ui = false
-node start-proxy.js --ui=any-value          # ui = false (only "true" is truthy)
+node src/index.js --ui                    # ui = true
+node src/index.js --ui=true               # ui = true
+node src/index.js --ui=false              # ui = false
+node src/index.js --ui=any-value          # ui = false (only "true" is truthy)
 
 # Same for chrome and debug
-node start-proxy.js --chrome=true --debug=false
+node src/index.js --chrome=true --debug=false
 ```
 
 ### Available Options
@@ -128,29 +128,29 @@ node start-proxy.js --chrome=true --debug=false
 
 ```bash
 # Use global config.json if it exists
-node start-proxy.js
+node src/index.js
 
 # Create certificates only
-node start-proxy.js --create-cert
+node src/index.js --create-cert
 
 # Override global configuration with CLI parameters
-node start-proxy.js --ui=true --chrome=false
+node src/index.js --ui=true --chrome=false
 ```
 
 #### Specific Configurations
 
 ```bash
 # Specific file that overrides global configuration
-node start-proxy.js --config my-config.json
+node src/index.js --config my-config.json
 
 # CLI parameters that override everything else
-node start-proxy.js --config my-config.json --ui=true --chrome=false
+node src/index.js --config my-config.json --ui=true --chrome=false
 
 # Complete priority example:
 # 1. global config.json (base)
 # 2. my-config.json (overrides global)
 # 3. --ui=true (overrides everything)
-node start-proxy.js --config my-config.json --ui=true
+node src/index.js --config my-config.json --ui=true
 ```
 
 ### Configuration Priority
@@ -208,7 +208,7 @@ The setup.sh script now uses the `--create-cert` parameter to generate certifica
 This internally executes:
 
 ```bash
-node start-proxy.js --create-cert
+node src/index.js --create-cert
 ```
 
 ### Direct Execution
@@ -217,11 +217,11 @@ It's no longer necessary to use `start.sh` (removed). You can execute directly:
 
 ```bash
 # Normal execution
-node start-proxy.js
+node src/index.js
 
 # Background mode (if you need it to run in the background)
-node start-proxy.js &
+node src/index.js &
 
 # With specific configuration
-node start-proxy.js --config my-config.json --ui --chrome
+node src/index.js --config my-config.json --ui --chrome
 ```

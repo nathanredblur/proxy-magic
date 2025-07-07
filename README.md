@@ -80,14 +80,14 @@ This project sets up a local Man-in-the-Middle (MITM) proxy server using Node.js
 
     ```bash
     # Use config.yaml defaults (recommended)
-    node start-proxy.js
+    node src/index.js
 
     # Common modes
-    node start-proxy.js --ui --chrome             # Interactive UI + Chrome
-    node start-proxy.js --ui=false --chrome      # Background + Chrome only
+    node src/index.js --ui --chrome             # Interactive UI + Chrome
+    node src/index.js --ui=false --chrome      # Background + Chrome only
 
     # Show all options
-    node start-proxy.js --help
+    node src/index.js --help
     ```
 
 4.  **Available Modes:**
@@ -142,23 +142,23 @@ All configuration can be overridden via command-line arguments:
 
 ```bash
 # Basic options
-node start-proxy.js --ui                    # Enable interactive UI
-node start-proxy.js --ui=false              # Disable UI explicitly
-node start-proxy.js --chrome                # Launch Chrome automatically
-node start-proxy.js --chrome=false          # Don't launch Chrome
-node start-proxy.js --debug                 # Enable debug mode
-node start-proxy.js --debug=false           # Disable debug
+node src/index.js --ui                    # Enable interactive UI
+node src/index.js --ui=false              # Disable UI explicitly
+node src/index.js --chrome                # Launch Chrome automatically
+node src/index.js --chrome=false          # Don't launch Chrome
+node src/index.js --debug                 # Enable debug mode
+node src/index.js --debug=false           # Disable debug
 
 # Advanced configuration
-node start-proxy.js --rules user-rules      # Set rules directory
-node start-proxy.js --chrome-url https://google.com  # Custom Chrome start URL
-node start-proxy.js --log 2                 # Set log level (0=errors, 1=basic, 2=debug)
+node src/index.js --rules user-rules      # Set rules directory
+node src/index.js --chrome-url https://google.com  # Custom Chrome start URL
+node src/index.js --log 2                 # Set log level (0=errors, 1=basic, 2=debug)
 
 # Configuration files
-node start-proxy.js --config my-config.json # Use specific config file
+node src/index.js --config my-config.json # Use specific config file
 
 # Show current configuration
-node start-proxy.js --help                  # Shows all available options
+node src/index.js --help                  # Shows all available options
 ```
 
 ### Configuration Validation
@@ -195,13 +195,13 @@ Quick Actions:  b (launch Chrome), c (clear logs), q (quit), F1 (help)
 
 ```bash
 # Background mode with Chrome
-node start-proxy.js --chrome
+node src/index.js --chrome
 
 # Interactive UI mode
-node start-proxy.js --ui
+node src/index.js --ui
 
 # Combined mode (recommended)
-node start-proxy.js --ui --chrome
+node src/index.js --ui --chrome
 ```
 
 ## 🛠️ Certificate Management
@@ -267,7 +267,7 @@ The first time you run the proxy, it will generate a root Certificate Authority 
 ### Command Line Options
 
 ```bash
-node start-proxy.js [OPTIONS]
+node src/index.js [OPTIONS]
 
 # Basic options
 --ui[=true|false]     # Interactive Terminal UI
@@ -301,10 +301,10 @@ The `rules/` directory contains several example rules:
 
 ```bash
 # Test with httpbin.org
-node start-proxy.js --chrome-url http://httpbin.org/ --ui
+node src/index.js --chrome-url http://httpbin.org/ --ui
 
 # Debug mode
-node start-proxy.js --chrome-url http://httpbin.org/ --log 2 --ui
+node src/index.js --chrome-url http://httpbin.org/ --log 2 --ui
 ```
 
 ## 🔍 Troubleshooting
@@ -322,7 +322,7 @@ Use `--log 2` for detailed debugging information including request/response deta
 
 ```bash
 # Debug with UI
-node start-proxy.js --log 2 --ui
+node src/index.js --log 2 --ui
 
 # Certificate management
 ./setup.sh --show-certs
@@ -334,7 +334,8 @@ node start-proxy.js --log 2 --ui
 ```
 proxy-magic/
 ├── README.md                   # This file
-├── start-proxy.js             # Main entry point
+├── src/
+│   ├── index.js               # Main entry point
 ├── types.js                   # TypeScript definitions
 ├── setup.sh                   # Certificate management
 ├── config.yaml                # Configuration file (recommended)
