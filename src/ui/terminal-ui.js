@@ -8,7 +8,7 @@ const contrib = require('blessed-contrib');
 const chalk = require('chalk');
 const { LogFormatter, LOG_TYPES } = require('./log-formatter');
 const { RuleManager } = require('./rule-manager');
-const { chromeLauncher } = require('../utils/chrome-launcher');
+const { launchChrome } = require('../utils/chrome-launcher');
 
 /**
  * Terminal UI class
@@ -403,7 +403,7 @@ class TerminalUI {
      */
     getStatusText() {
         // Chrome runs independently, so we show it as independent
-        const chromeStatus = chalk.blue('🌐 Chrome: Independent');
+        const chromeStatus = chalk.white('🌐 Chrome: Independent');
         
         const rulesCount = this.ruleManager.getRuleCount();
         const enabledCount = this.ruleManager.getEnabledCount();
@@ -556,7 +556,7 @@ class TerminalUI {
                 this.logFormatter.logSystem('📍 Using Chrome\'s default behavior (last session/homepage)');
             }
             
-            const result = await chromeLauncher.launchChrome(this.chromeUrl);
+            const result = await launchChrome(this.chromeUrl);
             
             if (result.success) {
                 this.logFormatter.logSystem(`✅ ${result.message}`);

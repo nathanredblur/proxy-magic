@@ -317,10 +317,7 @@ function startProxy(proxy, config, paths, terminalUI = null, startupConfig = {})
         // Launch Chrome automatically if requested
         if (startupConfig.chrome) {
             try {
-                const { chromeLauncher } = require('./utils/chrome-launcher');
-                
-                // Set proxy configuration for Chrome launcher
-                chromeLauncher.setProxyConfig(config.host, config.port);
+                const { launchChrome } = require('./utils/chrome-launcher');
                 
                 const chromeUrl = startupConfig.chromeUrl;
                 
@@ -336,7 +333,7 @@ function startProxy(proxy, config, paths, terminalUI = null, startupConfig = {})
                     terminalUI.logSystem(`📍 Starting URL: ${chromeUrl}`);
                 }
                 
-                const result = await chromeLauncher.launchChrome(chromeUrl);
+                const result = await launchChrome(chromeUrl);
                 
                 if (result.success) {
                     logger.log(1, `✅ Chrome launched: ${result.message}`);
@@ -385,13 +382,13 @@ function setupShutdownHandlers(proxy, terminalUI = null) {
         }
         
         // Close Chrome first if running (while UI logging is still active)
-        const { chromeLauncher } = require('./utils/chrome-launcher');
-        if (chromeLauncher.isChromeRunning()) {
+        const { isChromeRunning, closeChrome } = require('./utils/chrome-launcher');
+        if (isChromeRunning()) {
             if (terminalUI) {
                 terminalUI.logSystem('🌐 Closing Chrome browser...');
             }
             try {
-                await chromeLauncher.closeChrome();
+                await closeChrome();
                 if (terminalUI) {
                     terminalUI.logSystem('✅ Chrome closed successfully');
                 }

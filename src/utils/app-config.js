@@ -16,6 +16,7 @@ const DEFAULT_CONFIG = {
     chromeUrl: null,
     createCert: false,
     configFile: null,
+    chromeProfileDir: path.join(os.homedir(), '.chrome_proxy_profile'),
     proxy: {
         port: 8080,
         host: '127.0.0.1',
@@ -171,6 +172,14 @@ function getChromeUrl() {
 }
 
 /**
+ * Get Chrome profile directory
+ * @returns {string} Chrome profile directory path
+ */
+function getChromeProfileDir() {
+    return get('chromeProfileDir');
+}
+
+/**
  * Get proxy configuration
  * @returns {Object} Proxy configuration
  */
@@ -198,6 +207,7 @@ module.exports = {
     isUIMode,
     isChromeMode,
     getChromeUrl,
+    getChromeProfileDir,
     getProxyConfig,
     getDefaults
 }; 
