@@ -35,18 +35,9 @@ warning() {
 
 cleanup() {
     log "Cleaning up..."
-    if [ -f "$PID_FILE" ]; then
-        local pid=$(cat "$PID_FILE")
-        if kill -0 "$pid" 2>/dev/null; then
-            log "Stopping proxy server (PID: $pid)..."
-            kill -TERM "$pid" 2>/dev/null
-            sleep 2
-            if kill -0 "$pid" 2>/dev/null; then
-                kill -KILL "$pid" 2>/dev/null
-            fi
-        fi
-        rm -f "$PID_FILE"
-    fi
+    # Remove temporary files
+    rm -f /tmp/proxy-setup.log
+    rm -f "$PID_FILE"
 }
 
 # Trap to ensure cleanup on exit
@@ -77,74 +68,31 @@ check_requirements() {
 }
 
 start_proxy_server() {
-    log "Starting proxy server to generate certificates..."
+    log "Generating certificates using --create-cert option..."
     
-    # Set environment variables and start the proxy server in background
-    # Force no-UI mode for certificate generation
+    # Use the new --create-cert option to generate certificates only
     export NODE_TLS_REJECT_UNAUTHORIZED=0
-    nohup node start-proxy.js --no-ui --no-chrome > /tmp/proxy-setup.log 2>&1 &
-    local pid=$!
-    echo $pid > "$PID_FILE"
     
-    log "Proxy server started with PID: $pid (headless mode for certificate generation)"
-    
-    # Wait for server to start
-    local attempts=0
-    local max_attempts=$((STARTUP_TIMEOUT * 2)) # Check every 500ms
-    
-    while [ $attempts -lt $max_attempts ]; do
-        if grep -q "MITM Proxy listening on" /tmp/proxy-setup.log 2>/dev/null; then
-            success "Proxy server started successfully"
-            return 0
-        fi
-        
-        if grep -q "FATAL ERROR" /tmp/proxy-setup.log 2>/dev/null; then
-            error "Proxy server failed to start:"
-            cat /tmp/proxy-setup.log
-            return 1
-        fi
-        
-        if ! kill -0 "$pid" 2>/dev/null; then
-            error "Proxy server process died unexpectedly"
-            return 1
-        fi
-        
-        sleep 0.5
-        attempts=$((attempts + 1))
-        
-        # Show progress every 5 seconds
-        if [ $((attempts % 10)) -eq 0 ]; then
-            log "Still waiting for proxy server to start... (${attempts}/2 seconds)"
-        fi
-    done
-    
-    error "Proxy server startup timeout"
-    return 1
+    if node start-proxy.js --create-cert > /tmp/proxy-setup.log 2>&1; then
+        success "Certificates generated successfully"
+        return 0
+    else
+        error "Certificate generation failed:"
+        cat /tmp/proxy-setup.log
+        return 1
+    fi
 }
 
 wait_for_certificate() {
-    log "Waiting for certificate generation..."
-    
-    local attempts=0
-    local max_attempts=$((STARTUP_TIMEOUT * 2)) # Check every 500ms
-    
-    while [ $attempts -lt $max_attempts ]; do
-        if [ -f "$CA_CERT_PATH" ]; then
-            success "Certificate generated successfully"
-            return 0
-        fi
-        
-        sleep 0.5
-        attempts=$((attempts + 1))
-        
-        # Show progress every 5 seconds
-        if [ $((attempts % 10)) -eq 0 ]; then
-            log "Still waiting for certificate generation... (${attempts}/2 seconds)"
-        fi
-    done
-    
-    error "Certificate generation timeout"
-    return 1
+    # With --create-cert, certificates are generated synchronously
+    # So we just need to check if the certificate file exists
+    if [ -f "$CA_CERT_PATH" ]; then
+        success "Certificate file found"
+        return 0
+    else
+        error "Certificate file not found at $CA_CERT_PATH"
+        return 1
+    fi
 }
 
 show_existing_certificates() {
@@ -401,7 +349,7 @@ main() {
     success "🎉 Setup completed successfully!"
     echo ""
     log "Next steps"
-    log "Run: ./start.sh https://www.example.org"
+    log "Run: node start-proxy.js --chrome-url https://www.example.org --chrome"
     log "or browse to any HTTPS site to test SSL interception"
     echo ""
     log "Certificate location: $CA_CERT_PATH"

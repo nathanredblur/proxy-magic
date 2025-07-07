@@ -8,6 +8,7 @@ const path = require('path');
 
 // Import our refactored modules
 const { logger, initializeLogger, setUIInstance, suppressConsoleOutput, removeUIInstance } = require('./utils/logger');
+const appConfig = require('./utils/app-config');
 const stats = require('./utils/stats');
 const { validateRules } = require('./utils/rule-validator');
 const { handleProxyError, setupGlobalErrorHandlers } = require('./error-handler');
@@ -26,19 +27,14 @@ const {
  * @param {Object} startupConfig - Startup configuration (UI, debug, etc.)
  */
 async function startProxyServer(startupConfig = {}) {
-    // Configure environment variables from startup config
-    if (startupConfig.rulesDir) {
-        process.env.RULES_DIR = startupConfig.rulesDir;
-    }
-    
     // Log configuration for debugging (only in debug mode)
-    if (process.env.DEBUG_RULES === 'true') {
+    if (appConfig.isDebugMode()) {
         console.log(`🔍 [ProxyServer] Configuration:`);
-        console.log(`🔍   RULES_DIR (env): ${process.env.RULES_DIR}`);
-        console.log(`🔍   rulesDir (startup): ${startupConfig.rulesDir}`);
-        console.log(`🔍   chromeUrl (startup): ${startupConfig.chromeUrl}`);
-        console.log(`🔍   UI mode: ${startupConfig.ui}`);
-        console.log(`🔍   Chrome mode: ${startupConfig.chrome}`);
+        console.log(`🔍   rulesDir: ${appConfig.getRulesDir()}`);
+        console.log(`🔍   chromeUrl: ${appConfig.getChromeUrl()}`);
+        console.log(`🔍   UI mode: ${appConfig.isUIMode()}`);
+        console.log(`🔍   Chrome mode: ${appConfig.isChromeMode()}`);
+        console.log(`🔍   Debug mode: ${appConfig.isDebugMode()}`);
     }
     
     // Initialize UI first if requested to avoid log conflicts
@@ -69,8 +65,8 @@ async function startProxyServer(startupConfig = {}) {
         
         try {
             const { TerminalUI } = require('./ui/terminal-ui');
-            if (process.env.DEBUG_RULES === 'true') {
-                console.log(`🔍 [ProxyServer] Creating TerminalUI with rulesDir: ${startupConfig.rulesDir}`);
+            if (appConfig.isDebugMode()) {
+                console.log(`🔍 [ProxyServer] Creating TerminalUI with rulesDir: ${appConfig.getRulesDir()}`);
             }
             terminalUI = new TerminalUI({
                 rulesDir: startupConfig.rulesDir,
@@ -119,7 +115,7 @@ async function startProxyServer(startupConfig = {}) {
     setupGlobalErrorHandlers();
     
     // Get and validate configuration
-    const config = getProxyConfig();
+    const config = getProxyConfig(startupConfig);
     const validation = validateConfig(config);
     
     if (!validation.isValid) {
@@ -157,7 +153,7 @@ async function startProxyServer(startupConfig = {}) {
     if (terminalUI) {
         // Use UI rule manager for enabled rules only
         activeRules = terminalUI.getEnabledRules();
-        if (process.env.DEBUG_RULES === 'true') {
+        if (appConfig.isDebugMode()) {
             console.log(`🔍 [ProxyServer] TerminalUI rules loaded: ${activeRules.length} enabled rules`);
         }
         terminalUI.logSystem(`📋 Loaded ${activeRules.length} enabled rules from directory: ${terminalUI.ruleManager.rulesDir}`);
@@ -178,8 +174,8 @@ async function startProxyServer(startupConfig = {}) {
         // Load rules using the legacy loader for non-UI mode
         const rules = require('./rule-loader');
         activeRules = rules;
-        if (process.env.DEBUG_RULES === 'true') {
-            console.log(`🔍 [ProxyServer] Legacy loader rules: ${activeRules.length} rules from RULES_DIR=${process.env.RULES_DIR}`);
+        if (appConfig.isDebugMode()) {
+            console.log(`🔍 [ProxyServer] Legacy loader rules: ${activeRules.length} rules from ${appConfig.getRulesDir()}`);
         }
         // Validate rules before starting the proxy (non-UI mode)
         validateRules(rules);
@@ -313,7 +309,7 @@ function startProxy(proxy, config, paths, terminalUI = null, startupConfig = {})
             terminalUI.logSystem('🚀 Proxy server started successfully');
         } else {
             // For non-UI mode, also log the rules directory
-            const rulesDir = process.env.RULES_DIR || 'rules';
+            const rulesDir = appConfig.getRulesDir();
             const resolvedRulesDir = require('path').isAbsolute(rulesDir) ? rulesDir : require('path').resolve(process.cwd(), rulesDir);
             logger.log(1, `📁 Loading rules from directory: ${resolvedRulesDir}`);
         }
@@ -485,6 +481,57 @@ function setupShutdownHandlers(proxy, terminalUI = null) {
 }
 
 /**
+ * Creates certificates only without starting the proxy server
+ * @param {Object} startupConfig - Startup configuration
+ */
+async function createCertificatesOnly(startupConfig = {}) {
+    try {
+        // Initialize logger without UI
+        initializeLogger();
+        
+        // Get and validate configuration
+        const config = getProxyConfig(startupConfig);
+        const validation = validateConfig(config);
+        
+        if (!validation.isValid) {
+            logger.error('🚨 Configuration errors:');
+            validation.errors.forEach(error => logger.error(`  - ${error}`));
+            throw new Error('Configuration validation failed');
+        }
+        
+        // Get CA certificate paths
+        const paths = getCaCertPath(__dirname, config.caCertDir);
+        
+        logger.log(1, `🔐 Creating certificates in: ${paths.caDir}`);
+        
+        // Create proxy instance to generate certificates
+        const proxy = initializeProxy();
+        
+        return new Promise((resolve, reject) => {
+            const listenOptions = getProxyListenOptions(config, paths.caDir);
+            
+            proxy.listen(listenOptions, (err) => {
+                if (err) {
+                    logger.error('Error starting proxy for certificate generation:', err);
+                    return reject(err);
+                }
+                
+                logger.log(1, '✅ Certificates generated successfully');
+                
+                // Close proxy immediately after certificates are generated
+                proxy.close(() => {
+                    logger.log(1, '🔐 Certificate generation complete');
+                    resolve();
+                });
+            });
+        });
+    } catch (error) {
+        logger.error('🚨 Fatal error during certificate creation:', error);
+        throw error;
+    }
+}
+
+/**
  * Main entry point with UI support
  * @param {Object} config - Configuration options
  */
@@ -504,6 +551,7 @@ module.exports = {
     setupProxyHandlers,
     startProxy,
     setupShutdownHandlers,
+    createCertificatesOnly,
     main
 };
 

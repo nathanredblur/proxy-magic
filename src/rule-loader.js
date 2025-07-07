@@ -1,8 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-
-// Load environment variables
-require('dotenv').config();
+const appConfig = require('./utils/app-config');
 
 /**
  * @typedef {Object} Rule
@@ -17,8 +15,8 @@ require('dotenv').config();
  * @returns {Array<Rule>} Array of rule objects
  */
 function loadAllRules() {
-    // Get rules directory from environment variable or use default
-    const rawRulesDir = process.env.RULES_DIR || 'rules';
+    // Get rules directory from configuration
+    const rawRulesDir = appConfig.getRulesDir();
     
     // Handle both relative and absolute paths properly
     let rulesDir;
@@ -30,7 +28,7 @@ function loadAllRules() {
     }
     
     const rules = [];
-    const isDebug = process.env.DEBUG_RULES === 'true';
+    const isDebug = appConfig.isDebugMode();
     
     // Log for debugging (only in debug mode)
     if (isDebug) {

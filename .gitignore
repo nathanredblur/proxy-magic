@@ -17,3 +17,4 @@ pnpm-lock.yaml
 .env
 user-rules/
 config/rules-state.json
+config.yaml
