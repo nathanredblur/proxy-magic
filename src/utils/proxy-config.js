@@ -5,40 +5,29 @@
 
 const path = require('path');
 const { logger } = require('./logger');
-
-// Default configuration
-const DEFAULT_CONFIG = {
-    port: 8080,
-    host: '127.0.0.1',
-    logLevel: 2,
-    statsInterval: 5, // minutes
-    caCertDir: '.proxy_certs'
-};
+const appConfig = require('./app-config');
 
 /**
- * Gets proxy configuration from environment variables and defaults
+ * Gets proxy configuration from app config
+ * @param {Object} startupConfig - Configuration from startup (file or CLI) - deprecated, use appConfig instead
  * @returns {Object} - Proxy configuration object
  */
-function getProxyConfig() {
-    return {
-        port: parseInt(process.env.PROXY_PORT || DEFAULT_CONFIG.port, 10),
-        host: process.env.PROXY_HOST || DEFAULT_CONFIG.host,
-        logLevel: parseInt(process.env.PROXY_LOG_LEVEL || DEFAULT_CONFIG.logLevel, 10),
-        statsInterval: parseInt(process.env.PROXY_STATS_INTERVAL || DEFAULT_CONFIG.statsInterval, 10),
-        caCertDir: process.env.PROXY_CA_DIR || DEFAULT_CONFIG.caCertDir
-    };
+function getProxyConfig(startupConfig = {}) {
+    return appConfig.getProxyConfig();
 }
 
 /**
  * Gets the full path to the CA certificate directory
  * @param {string} baseDir - Base directory (usually __dirname)
- * @param {string} caDirName - CA directory name
+ * @param {string} caDirName - CA directory name (optional, uses appConfig if not provided)
  * @returns {string} - Full path to CA directory
  */
-function getCaCertPath(baseDir, caDirName = DEFAULT_CONFIG.caCertDir) {
+function getCaCertPath(baseDir, caDirName = null) {
+    const actualCaDirName = caDirName || appConfig.getProxyConfig().caCertDir;
+    
     // Go up one directory from src/ to the project root
     const projectRoot = path.join(baseDir, '..');
-    const caDir = path.join(projectRoot, caDirName);
+    const caDir = path.join(projectRoot, actualCaDirName);
     const caCertPath = path.join(caDir, 'certs', 'ca.pem');
     
     return {
@@ -74,13 +63,13 @@ function validateConfig(config) {
     // Validate log level
     if (config.logLevel < 0 || config.logLevel > 2) {
         warnings.push(`Invalid log level: ${config.logLevel}. Should be 0, 1, or 2. Using default.`);
-        config.logLevel = DEFAULT_CONFIG.logLevel;
+        config.logLevel = appConfig.getDefaults().proxy.logLevel;
     }
     
     // Validate stats interval
     if (config.statsInterval < 1) {
         warnings.push(`Invalid stats interval: ${config.statsInterval}. Should be >= 1 minute. Using default.`);
-        config.statsInterval = DEFAULT_CONFIG.statsInterval;
+        config.statsInterval = appConfig.getDefaults().proxy.statsInterval;
     }
     
     return {
@@ -134,27 +123,29 @@ function logStartupInfo(config, paths) {
 }
 
 /**
- * Environment configuration helper
+ * Configuration help
  */
-const ENV_HELP = {
-    PROXY_PORT: 'Port for the proxy server (default: 8080)',
-    PROXY_HOST: 'Host address to bind to (default: 127.0.0.1)',
-    PROXY_LOG_LEVEL: 'Logging level: 0=errors only, 1=basic, 2=debug (default: 2)',
-    PROXY_STATS_INTERVAL: 'Statistics reporting interval in minutes (default: 5)',
-    PROXY_CA_DIR: 'Directory for CA certificates (default: .proxy_certs)'
+const CONFIG_HELP = {
+    proxy: {
+        port: 'Port for the proxy server (default: 8080)',
+        host: 'Host address to bind to (default: 127.0.0.1)',
+        logLevel: 'Logging level: 0=errors only, 1=basic, 2=debug (default: 2)',
+        statsInterval: 'Statistics reporting interval in minutes (default: 5)',
+        caCertDir: 'Directory for CA certificates (default: .proxy_certs)'
+    }
 };
 
 /**
- * Prints environment variable help
+ * Prints configuration help
  */
-function printEnvironmentHelp() {
-    logger.log(1, '📋 ===== ENVIRONMENT VARIABLES =====');
-    Object.entries(ENV_HELP).forEach(([key, description]) => {
-        const currentValue = process.env[key] || 'not set';
-        logger.log(1, `📋 ${key}: ${description}`);
-        logger.log(1, `📋   Current value: ${currentValue}`);
-    });
-    logger.log(1, '📋 ==================================');
+function printConfigurationHelp() {
+    logger.log(1, '📋 ===== CONFIGURATION OPTIONS =====');
+    logger.log(1, '📋 proxy.port: Port for the proxy server (default: 8080)');
+    logger.log(1, '📋 proxy.host: Host address to bind to (default: 127.0.0.1)');
+    logger.log(1, '📋 proxy.logLevel: Logging level: 0=errors only, 1=basic, 2=debug (default: 2)');
+    logger.log(1, '📋 proxy.statsInterval: Statistics reporting interval in minutes (default: 5)');
+    logger.log(1, '📋 proxy.caCertDir: Directory for CA certificates (default: .proxy_certs)');
+    logger.log(1, '📋 ===================================');
 }
 
 module.exports = {
@@ -164,6 +155,5 @@ module.exports = {
     logConfiguration,
     getProxyListenOptions,
     logStartupInfo,
-    printEnvironmentHelp,
-    DEFAULT_CONFIG
+    printConfigurationHelp
 }; 

@@ -7,21 +7,27 @@ const chalk = require('chalk');
 const path = require('path');
 const fs = require('fs-extra');
 const { ruleStateManager } = require('../utils/rule-state');
-
-// Load environment variables
-require('dotenv').config();
+const appConfig = require('../utils/app-config');
 
 /**
  * Interactive rule manager class
  */
 class RuleManager {
+    /**
+     * Helper to check if debug mode is enabled
+     * @returns {boolean} True if debug mode is enabled
+     */
+    _isDebugMode() {
+        return appConfig.isDebugMode();
+    }
+
     constructor(rulesDir = null) {
         this.rules = [];
         this.selectedIndex = 0;
         this.initialized = false;
         
-        // Rules directory can be overridden by constructor parameter, --rules flag, or .env
-        const rawRulesDir = rulesDir || process.env.RULES_DIR || 'rules';
+        // Rules directory can be overridden by constructor parameter or app config
+        const rawRulesDir = rulesDir || appConfig.getRulesDir();
         
         // Handle both relative and absolute paths properly
         if (path.isAbsolute(rawRulesDir)) {
@@ -42,7 +48,7 @@ class RuleManager {
         }
         
         // Log the resolved rules directory for debugging (only in debug mode)
-        if (process.env.DEBUG_RULES === 'true') {
+        if (this._isDebugMode()) {
             console.log(`🔍 [RuleManager] Raw rules dir: "${rawRulesDir}"`);
             console.log(`🔍 [RuleManager] Resolved rules directory: "${this.rulesDir}"`);
             console.log(`🔍 [RuleManager] Source name: "${this.sourceName}"`);
@@ -71,7 +77,7 @@ class RuleManager {
     async loadRules() {
         this.rules = [];
         
-        if (process.env.DEBUG_RULES === 'true') {
+        if (this._isDebugMode()) {
             console.log(`🔍 [RuleManager] Starting rule loading from: ${this.rulesDir}`);
             console.log(`🔍 [RuleManager] Directory exists: ${await require('fs-extra').pathExists(this.rulesDir)}`);
         }
@@ -79,7 +85,7 @@ class RuleManager {
         // Load rules only from the configured directory (respects RULES_DIR)
         await this.loadRulesFromDirectory(this.rulesDir, this.sourceName);
 
-        if (process.env.DEBUG_RULES === 'true') {
+        if (this._isDebugMode()) {
             console.log(`🔍 [RuleManager] Loaded ${this.rules.length} rules total`);
         }
 
@@ -91,7 +97,7 @@ class RuleManager {
         // Sort rules by name for consistent display
         this.rules.sort((a, b) => a.name.localeCompare(b.name));
         
-        if (process.env.DEBUG_RULES === 'true') {
+        if (this._isDebugMode()) {
             console.log(`🔍 [RuleManager] Final rule count after sorting: ${this.rules.length}`);
             if (this.rules.length > 0) {
                 console.log(`🔍 [RuleManager] Rule names: ${this.rules.map(r => r.name).join(', ')}`);
@@ -106,19 +112,19 @@ class RuleManager {
      */
     async loadRulesFromDirectory(directory, source) {
         try {
-            if (process.env.DEBUG_RULES === 'true') {
+            if (this._isDebugMode()) {
                 console.log(`🔍 [RuleManager] Loading from directory: ${directory}`);
             }
             
             if (!await fs.pathExists(directory)) {
-                if (process.env.DEBUG_RULES === 'true') {
+                if (this._isDebugMode()) {
                     console.log(`🔍 [RuleManager] Directory does not exist: ${directory}`);
                 }
                 return;
             }
 
             const files = await fs.readdir(directory);
-            if (process.env.DEBUG_RULES === 'true') {
+            if (this._isDebugMode()) {
                 console.log(`🔍 [RuleManager] Found ${files.length} files: ${files.join(', ')}`);
             }
             
@@ -128,14 +134,14 @@ class RuleManager {
                 file !== 'types.js'
             );
             
-            if (process.env.DEBUG_RULES === 'true') {
+            if (this._isDebugMode()) {
                 console.log(`🔍 [RuleManager] Filtered to ${ruleFiles.length} rule files: ${ruleFiles.join(', ')}`);
             }
 
             for (const file of ruleFiles) {
                 try {
                     const rulePath = path.join(directory, file);
-                    if (process.env.DEBUG_RULES === 'true') {
+                    if (this._isDebugMode()) {
                         console.log(`🔍 [RuleManager] Loading rule from: ${rulePath}`);
                     }
                     
@@ -143,7 +149,7 @@ class RuleManager {
                     delete require.cache[require.resolve(rulePath)];
                     
                     const ruleModule = require(rulePath);
-                    if (process.env.DEBUG_RULES === 'true') {
+                    if (this._isDebugMode()) {
                         console.log(`🔍 [RuleManager] Rule module type: ${typeof ruleModule}, name: ${ruleModule?.name || 'unnamed'}`);
                     }
                     
@@ -158,17 +164,17 @@ class RuleManager {
                         };
                         
                         this.rules.push(rule);
-                        if (process.env.DEBUG_RULES === 'true') {
+                        if (this._isDebugMode()) {
                             console.log(`🔍 [RuleManager] Successfully loaded rule: ${rule.name}`);
                         }
                     } else {
-                        if (process.env.DEBUG_RULES === 'true') {
+                        if (this._isDebugMode()) {
                             console.log(`🔍 [RuleManager] Skipped invalid rule module: ${file}`);
                         }
                     }
                 } catch (error) {
                     console.error(`🔍 [RuleManager] Failed to load rule ${file}:`, error.message);
-                    if (process.env.DEBUG_RULES === 'true') {
+                    if (this._isDebugMode()) {
                         console.error(`🔍 [RuleManager] Full error:`, error);
                     }
                 }

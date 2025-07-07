@@ -1,0 +1,48 @@
+# Proxy Magic Configuration Example
+# Copy this file to config.yaml and modify as needed
+
+# Interface Options
+ui: true # Enable Interactive Terminal UI
+chrome: true # Launch Chrome automatically with proxy configuration
+debug: false # Enable debug mode for detailed logging
+
+# Logging
+logLevel: "1" # Log level: 0=errors only, 1=basic, 2=debug
+
+# Rules
+rulesDir: "rules" # Directory containing rule files
+
+# Chrome Configuration
+chromeUrl: null # URL to open when Chrome starts (null = default behavior)
+# chromeUrl: "https://httpbin.org/"  # Example: test site for proxy testing
+# chromeUrl: "https://google.com/"   # Example: start with Google
+
+# Proxy Server Configuration
+proxy:
+  port: 8080 # Proxy server port
+  host: "127.0.0.1" # Bind address (localhost)
+  logLevel: 2 # Internal proxy log level
+  statsInterval: 5 # Statistics reporting interval (minutes)
+  caCertDir: ".proxy_certs" # Directory for SSL certificates
+
+# Example configurations for different use cases:
+
+# Development mode (recommended for testing):
+# ui: true
+# chrome: true
+# debug: true
+# logLevel: "2"
+# chromeUrl: "https://httpbin.org/"
+
+# Production mode (background operation):
+# ui: false
+# chrome: false
+# debug: false
+# logLevel: "1"
+
+# Rule development mode (testing new rules):
+# ui: true
+# chrome: true
+# debug: true
+# logLevel: "2"
+# rulesDir: "user-rules"  # Use custom user rules directory
