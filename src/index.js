@@ -65,12 +65,15 @@ function parseArguments() {
     // Configuration accumulator - starts empty, gets populated from files and CLI
     const config = {};
     
-    // Step 1: Always try to load global config from current directory first
-    // Priority: config.yaml > config.yml > config.json
+    // Step 1: Always try to load global config
+    // Priority: ~/.proxy-magic.yml > cwd/config.yaml > cwd/config.yml > cwd/config.json
+    const os = require('os');
     const possibleConfigFiles = [
-        path.join(process.cwd(), 'config.yaml'),
-        path.join(process.cwd(), 'config.yml'),
-        path.join(process.cwd(), 'config.json')
+        path.join(os.homedir(), '.proxy-magic.yml'),
+        path.join(os.homedir(), '.proxy-magic.yaml'),
+        path.join(process.cwd(), '.proxy-magic.yaml'),
+        path.join(process.cwd(), '.proxy-magic.yml'),
+        path.join(process.cwd(), '.proxy-magic.json')
     ];
     
     let defaultConfigPath = null;
@@ -157,7 +160,8 @@ function showHelp() {
 Proxy Magic - HTTP/HTTPS Proxy with Rule Management
 
 USAGE:
-  node src/index.js [OPTIONS]
+  proxy-magic [OPTIONS]              # If installed globally (npm install -g .)
+  node src/index.js [OPTIONS]        # Direct execution
 
 OPTIONS:
   --config FILE            Path to configuration file (JSON or YAML format)
@@ -177,19 +181,24 @@ CONFIGURATION PRIORITY:
   4. Default values (lowest priority)
   
   The application will automatically look for configuration files in this order:
-  - config.yaml (recommended - supports comments)
-  - config.yml  (alternative YAML extension)
-  - config.json (legacy JSON format)
+  - ~/.proxy-magic.yml (user global config - highest priority)
+  - ~/.proxy-magic.yaml (user global config - alternative extension)
+  - .proxy-magic.yaml (project config - supports comments)
+  - .proxy-magic.yml  (project config - alternative YAML extension)
+  - .proxy-magic.json (project config - legacy JSON format)
 
 EXAMPLES:
-  node src/index.js                                        # Use default config.yaml if exists
-  node src/index.js --config myconfig.yaml                # Use specific YAML config file
-  node src/index.js --config myconfig.json                # Use specific JSON config file
-  node src/index.js --create-cert                         # Create certificates only
-  node src/index.js --ui --chrome                         # Start with UI and Chrome
-  node src/index.js --ui=true --chrome=false             # Explicit boolean values
+  # Global command (if installed globally)
+  proxy-magic                                             # Use default .proxy-magic.yaml if exists
+  proxy-magic --config myconfig.yaml                     # Use specific YAML config file
+  proxy-magic --ui --chrome                              # Start with UI and Chrome
+  proxy-magic --create-cert                              # Create certificates only
+  
+  # Direct execution (development)
+  node src/index.js                                       # Use default config.yaml if exists
+  node src/index.js --config myconfig.yaml               # Use specific YAML config file
+  node src/index.js --ui --chrome                        # Start with UI and Chrome
   node src/index.js --rules user-rules --ui              # Use user-rules directory with UI
-  node src/index.js --chrome-url https://google.com      # Chrome starts with Google
 
 CONFIGURATION FILE FORMAT:
   YAML format (recommended - supports comments):

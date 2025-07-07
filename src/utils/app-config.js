@@ -3,6 +3,9 @@
  * Centralizes all configuration access across the application
  */
 
+const os = require('os');
+const path = require('path');
+
 // Default configuration - single source of truth
 const DEFAULT_CONFIG = {
     ui: false,
@@ -18,7 +21,7 @@ const DEFAULT_CONFIG = {
         host: '127.0.0.1',
         logLevel: 2,
         statsInterval: 5,
-        caCertDir: '.proxy_certs'
+        caCertDir: path.join(os.homedir(), '.proxy_certs')
     }
 };
 
