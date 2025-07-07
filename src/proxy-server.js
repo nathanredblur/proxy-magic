@@ -209,12 +209,7 @@ function initializeProxy() {
  * @param {TerminalUI} terminalUI - Terminal UI instance (optional)
  */
 function setupProxyHandlers(proxy, ruleProvider, terminalUI = null) {
-    // Clear existing handlers to avoid duplicates during rule reloading
-    if (proxy._eventHandlers) {
-        proxy.removeAllListeners();
-        delete proxy._eventHandlers;
-    }
-    proxy._eventHandlers = true;
+    // Setup proxy event handlers (called once during initialization)
     
     // Error handler
     proxy.onError((ctx, err, errorKind) => {
@@ -365,12 +360,21 @@ function startProxy(proxy, config, paths, terminalUI = null, startupConfig = {})
     });
 }
 
+// Track if shutdown handlers are already set up
+let shutdownHandlersSetup = false;
+let proxyClosing = false;
+
 /**
  * Sets up graceful shutdown handlers
  * @param {Proxy} proxy - The proxy object
  * @param {TerminalUI} terminalUI - Terminal UI instance (optional)
  */
 function setupShutdownHandlers(proxy, terminalUI = null) {
+    // Prevent duplicate handlers
+    if (shutdownHandlersSetup) {
+        return;
+    }
+    shutdownHandlersSetup = true;
     const shutdownHandler = async () => {
         const shutdownMessage = '🛑 Shutting down MITM proxy...';
         
@@ -413,38 +417,77 @@ function setupShutdownHandlers(proxy, terminalUI = null) {
                 terminalUI.cleanup();
                 
                 // Now close proxy
-                if (proxy && proxy.close) {
-                    try {
-                        proxy.close(() => {
-                            console.log('✅ MITM Proxy closed gracefully.');
-                            process.exit(0);
-                        });
-                    } catch (error) {
-                        console.error('Error closing proxy:', error);
-                        process.exit(1);
-                    }
-                } else {
-                    console.log('✅ MITM Proxy already closed or not available.');
-                    process.exit(0);
-                }
+                closeProxyGracefully(proxy);
             }, 100);
         } else {
-            if (proxy && proxy.close) {
-                try {
-                    proxy.close(() => {
-                        console.log('✅ MITM Proxy closed gracefully.');
-                        process.exit(0);
-                    });
-                } catch (error) {
-                    console.error('Error closing proxy:', error);
-                    process.exit(1);
-                }
-            } else {
-                console.log('✅ MITM Proxy already closed or not available.');
-                process.exit(0);
-            }
+            closeProxyGracefully(proxy);
         }
     };
+
+    /**
+     * Close proxy gracefully
+     * @param {Proxy} proxy - The proxy instance to close
+     */
+    function closeProxyGracefully(proxy) {
+        // Prevent multiple close attempts
+        if (proxyClosing) {
+            return;
+        }
+        proxyClosing = true;
+        
+        if (!proxy) {
+            console.log('✅ MITM Proxy closed gracefully.');
+            process.exit(0);
+            return;
+        }
+
+        try {
+            // Manual server closing since proxy.close() callback doesn't work reliably
+            let serversClosed = 0;
+            let serversToClose = 0;
+            
+            const checkAllServersClosed = () => {
+                if (serversClosed >= serversToClose) {
+                    console.log('✅ MITM Proxy closed gracefully.');
+                    process.exit(0);
+                }
+            };
+            
+            // Close HTTP server manually
+            if (proxy.httpServer) {
+                serversToClose++;
+                proxy.httpServer.close(() => {
+                    serversClosed++;
+                    checkAllServersClosed();
+                });
+            }
+            
+            // Close HTTPS server manually if it exists
+            if (proxy.httpsServer) {
+                serversToClose++;
+                proxy.httpsServer.close(() => {
+                    serversClosed++;
+                    checkAllServersClosed();
+                });
+            }
+            
+            // If no servers to close, exit immediately
+            if (serversToClose === 0) {
+                console.log('✅ MITM Proxy closed gracefully.');
+                process.exit(0);
+            }
+            
+            // Set a timeout as safety net
+            setTimeout(() => {
+                console.log('⚠️  Proxy close timeout - forcing exit...');
+                process.exit(0);
+            }, 3000); // 3 second timeout
+            
+        } catch (error) {
+            console.log('⚠️  Proxy close error:', error.message);
+            process.exit(0);
+        }
+    }
     
     // Handle different shutdown signals
     process.on('SIGINT', () => {
