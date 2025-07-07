@@ -110,7 +110,7 @@ module.exports = myNewRule;
 **Example Usage:**
 
 ```bash
-node start-proxy.js --chrome-url http://httpbin.org/ --chrome  # Test HTTP→HTTPS conversion
+node src/index.js --chrome-url http://httpbin.org/ --chrome  # Test HTTP→HTTPS conversion
 ```
 
 ### JSON API Demo (`json-api-demo.js`)
@@ -180,7 +180,7 @@ For a comprehensive list of all possible tests organized by functionality, see:
 
 ### Testing Tips
 
-- **🚀 NEW**: Use `node start-proxy.js --chrome-url http://httpbin.org/ --chrome` to test HTTP→HTTPS conversion
+- **🚀 NEW**: Use `node src/index.js --chrome-url http://httpbin.org/ --chrome` to test HTTP→HTTPS conversion
 - **🚀 NEW**: Check logs for protocol conversion messages and curl commands
 - Use testing domains when possible (httpbin.org, example.com, localhost)
 - Check browser developer tools to see added headers
@@ -346,7 +346,7 @@ All rules are automatically tracked in the proxy statistics system:
 With `--log=DEBUG`, you get comprehensive information:
 
 ```bash
-node start-proxy.js --chrome-url https://example.com --log 2
+node src/index.js --chrome-url https://example.com --log 2
 ```
 
 **Debug Information Includes:**

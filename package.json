@@ -2,13 +2,16 @@
   "name": "proxy-magic",
   "version": "1.0.0",
   "description": "",
-  "main": "start-proxy.js",
+  "main": "src/index.js",
+  "bin": {
+    "proxy-magic": "./src/index.js"
+  },
   "scripts": {
-    "start": "concurrently --kill-others --names \"SERVER,CHROME\" --prefix-colors \"blueBright,greenBright\" \"pnpm proxy\" \"pnpm chrome\"",
-    "debug": "concurrently --kill-others --names \"SERVER,CHROME\" --prefix-colors \"blueBright,greenBright\" \"pnpm proxy:debug\" \"pnpm chrome\"",
-    "proxy": "export NODE_TLS_REJECT_UNAUTHORIZED=0 && node start-proxy.js",
-    "proxy:debug": "export NODE_TLS_REJECT_UNAUTHORIZED=0 && node --inspect-brk start-proxy.js",
-    "chrome": "/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --proxy-server='http://127.0.0.1:8080' --user-data-dir='./.chrome_proxy_profile' --no-first-run --disable-session-crashed-bubble",
+    "start": "node src/index.js",
+    "start:ui": "node src/index.js --ui --chrome",
+    "debug": "node --inspect-brk src/index.js --chrome",
+    "proxy": "node src/index.js",
+    "proxy:debug": "node --inspect-brk src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -22,8 +25,6 @@
     "http-mitm-proxy": "^1.1.0",
     "yaml": "^2.8.0"
   },
-  "devDependencies": {
-    "concurrently": "^9.1.2"
-  },
+  "devDependencies": {},
   "packageManager": "pnpm@10.11.0"
 }

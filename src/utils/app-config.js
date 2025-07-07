@@ -28,7 +28,7 @@ let initialized = false;
 
 /**
  * Initialize the configuration
- * @param {Object} userConfig - Configuration object from start-proxy.js
+ * @param {Object} userConfig - Configuration object from src/index.js
  */
 function initialize(userConfig) {
     // Merge the provided config with defaults

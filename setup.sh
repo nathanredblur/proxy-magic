@@ -73,7 +73,7 @@ start_proxy_server() {
     # Use the new --create-cert option to generate certificates only
     export NODE_TLS_REJECT_UNAUTHORIZED=0
     
-    if node start-proxy.js --create-cert > /tmp/proxy-setup.log 2>&1; then
+    if node src/index.js --create-cert > /tmp/proxy-setup.log 2>&1; then
         success "Certificates generated successfully"
         return 0
     else
@@ -349,7 +349,7 @@ main() {
     success "🎉 Setup completed successfully!"
     echo ""
     log "Next steps"
-    log "Run: node start-proxy.js --chrome-url https://www.example.org --chrome"
+    log "Run: node src/index.js --chrome-url https://www.example.org --chrome"
     log "or browse to any HTTPS site to test SSL interception"
     echo ""
     log "Certificate location: $CA_CERT_PATH"

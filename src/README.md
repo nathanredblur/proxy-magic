@@ -1,6 +1,6 @@
 # Proxy Magic - Refactored Architecture
 
-This directory contains the refactored and modular version of Proxy Magic, breaking down the monolithic `start-proxy.js` file into smaller, more maintainable modules.
+This directory contains the modular version of Proxy Magic, with `index.js` as the main entry point and other modules organized by functionality.
 
 ## 🏗️ Architecture Overview
 
@@ -8,7 +8,7 @@ The code has been organized into focused modules with clear responsibilities:
 
 ### Core Modules
 
-- **`start-proxy.js`** - Main server orchestration and startup
+- **`index.js`** - Main entry point with configuration parsing and startup orchestration
 - **`logger.js`** - Centralized logging system with configurable levels
 - **`stats.js`** - Statistics tracking and reporting
 - **`rule-validator.js`** - Rule validation and verification
@@ -96,7 +96,7 @@ const { logger, stats, proxyConfig } = require("./src");
 ## 📦 Module Dependencies
 
 ```
-start-proxy.js
+index.js
 ├── logger.js
 ├── stats.js
 ├── rule-validator.js
@@ -116,10 +116,10 @@ start-proxy.js
 
 ### From Legacy System
 
-The legacy `start-proxy.js` has been replaced with a simple entry point that delegates to the new modular system:
+The legacy `index.js` has been replaced with a simple entry point that delegates to the new modular system:
 
 ```javascript
-// start-proxy.js (root)
+// index.js (root)
 const { main } = require("./src/proxy-server");
 main();
 ```
